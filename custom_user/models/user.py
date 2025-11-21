@@ -1,4 +1,3 @@
-import uuid
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.utils import timezone
@@ -22,7 +21,6 @@ class CustomUserManager(BaseUserManager):
             raise ValueError('Superuser must have is_superuser=True.')
         return self.create_user(email, password, **extra_fields)
 
-
 class CustomUser(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True, null=False)
     phone_number = models.CharField(max_length=15, null=True)
@@ -43,25 +41,6 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     REQUIRED_FIELDS = []
 
     def __str__(self):
-        return self.phone_number
+        return self.email
 
 
-class Device(models.Model):
-    uid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='devices')
-    device_ip = models.CharField(max_length=45, null=True, blank=True)  # IPv6 uchun 45
-    device_hardware = models.CharField(max_length=100, null=True, blank=True)
-    device_name = models.CharField(max_length=100, null=True, blank=True)
-    location_city = models.CharField(max_length=50, null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    last_used = models.DateTimeField(auto_now=True)
-    is_active = models.BooleanField(default=True)
-
-    class Meta:
-        db_table = 'users_device'
-        verbose_name = 'Device'
-        verbose_name_plural = 'Devices'
-        ordering = ['-last_used']
-
-    def __str__(self):
-        return f"{self.user.email} - {self.device_name or 'Unknown Device'}"

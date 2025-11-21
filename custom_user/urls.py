@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import *
+from custom_user.views import *
 
 router = DefaultRouter()
 router.register(r'users', CustomUserViewSet, basename='users')
@@ -15,6 +15,5 @@ urlpatterns = [
     path('', include(router.urls)),
 
     path('devices/', DeviceListView.as_view(), name='device-list'),
-    path('devices/create/', DeviceCreateView.as_view(), name='device-create'),
     path('devices/<uuid:uid>/delete/', DeviceDeleteView.as_view(), name='device-delete'),
 ]
