@@ -476,13 +476,7 @@ class CustomUserViewSet(UserViewSet):
             status=status.HTTP_405_METHOD_NOT_ALLOWED
         )
 
-    # ❌ GET /users/{id}/ — o‘chiramiz
-    @swagger_auto_schema(auto_schema=None)
-    def retrieve(self, request, *args, **kwargs):
-        return Response(
-            {"detail": "Retrieve endpoint disabled."},
-            status=status.HTTP_405_METHOD_NOT_ALLOWED
-        )
+
 
     # ❌ POST /users/ — register endpointni ham bloklaymiz
     @swagger_auto_schema(auto_schema=None)
