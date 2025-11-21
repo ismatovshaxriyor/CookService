@@ -1,9 +1,18 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from rest_framework_simplejwt.tokens import RefreshToken
+from djoser.serializers import UserSerializer
+from .models import Device
 
 User = get_user_model()
 
+class CustomUserSerializer(UserSerializer):
+    class Meta(UserSerializer.Meta):
+        model = User
+        fields = ("id", "email", "phone_number", "full_name")
+        read_only_fields = ("id",)
+
+class ProfilePhotoSerializer(serializers.Serializer):
+    profile_photo = serializers.ImageField()
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
@@ -99,3 +108,30 @@ class UserLoginResponseSerializer(serializers.Serializer):
     access = serializers.CharField(help_text="JWT Access Token")
     refresh = serializers.CharField(help_text="JWT Refresh Token")
     user = serializers.DictField(help_text="User ma'lumotlari")
+
+class DeviceSerializer(serializers.ModelSerializer):
+    """Device ma'lumotlarini ko'rsatish uchun"""
+    class Meta:
+        model = Device
+        fields = ('uid', 'device_ip', 'device_hardware', 'device_name', 'location_city', 'created_at', 'last_used', 'is_active')
+        read_only_fields = ('uid', 'created_at', 'last_used')
+
+
+class DeviceCreateSerializer(serializers.Serializer):
+    """Yangi device qo'shish uchun"""
+    device_hardware = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    device_name = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    location_city = serializers.CharField(max_length=50, required=False, allow_blank=True)
+
+
+class DeviceCreateResponseSerializer(serializers.Serializer):
+    """Device yaratilgandan keyin response"""
+    success = serializers.BooleanField()
+    message = serializers.CharField()
+    device = DeviceSerializer()
+
+
+class DeviceDeleteResponseSerializer(serializers.Serializer):
+    """Device o'chirilgandan keyin response"""
+    success = serializers.BooleanField()
+    message = serializers.CharField()

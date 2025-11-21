@@ -154,12 +154,23 @@ DJOSER = {
     'SEND_CONFIRMATION_EMAIL': False,
     'PASSWORD_RESET_CONFIRM_URL': '#/password/reset/confirm/{uid}/{token}',
     'TOKEN_MODEL': None,
+    'SERIALIZERS': {
+        'user': 'custom_user.serializers.CustomUserSerializer',
+        'current_user': 'custom_user.serializers.CustomUserSerializer',
+    },
+    "DISABLED_ENDPOINTS": [
+        "user_delete",
+        "user_create",
+        "user_reset_password",
+        "user_reset_password_confirm",
+        "user_activation",
+    ],
 }
 
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=3),
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': False,

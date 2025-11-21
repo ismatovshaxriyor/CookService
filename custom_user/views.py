@@ -2,13 +2,17 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 from django.conf import settings
 from django.core.cache import cache
 from drf_spectacular.utils import extend_schema, OpenApiResponse
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 from rest_framework_simplejwt.tokens import RefreshToken
+from djoser.views import UserViewSet
 import random
 import string
 
@@ -21,8 +25,15 @@ from .serializers import (
     VerifyActivationCodeResponseSerializer,
     ErrorResponseSerializer,
     UserLoginSerializer,
-    UserLoginResponseSerializer
+    UserLoginResponseSerializer,
+    ProfilePhotoSerializer,
+    DeviceSerializer,
+    DeviceCreateSerializer,
+    DeviceCreateResponseSerializer,
+    DeviceDeleteResponseSerializer,
 )
+from .services import get_client_ip
+from .models import Device
 
 User = get_user_model()
 
@@ -31,6 +42,8 @@ class UserRegistrationView(APIView):
     """
     Yangi user ro'yxatdan o'tish. User yaratiladi lekin is_active=False bo'ladi.
     Keyin email'ga aktivatsiya kodi yuboriladi.
+    IP address bilan ishlaydi - har safar yangi qurilmadan register qilganda
+    eski cache bekor qilinadi va yangi kod yuboriladi.
     """
     permission_classes = [AllowAny]
 
@@ -51,21 +64,49 @@ class UserRegistrationView(APIView):
         description='Yangi user yaratish va email ga aktivatsiya kodi yuborish'
     )
     def post(self, request):
+        email = request.data.get('email')
+        ip_address = get_client_ip(request)
+
+        if email:
+            if User.objects.filter(email=email, is_active=True).exists():
+                return Response(
+                    {'error': 'Bu email allaqachon ro\'yxatdan o\'tgan va aktivlashtirilgan'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            old_user = User.objects.filter(email=email, is_active=False).first()
+            if old_user:
+                old_cache_key = f'activation_code_{old_user.id}'
+                cache.delete(old_cache_key)
+                old_user.delete()
+
         serializer = UserRegistrationSerializer(data=request.data)
 
         if not serializer.is_valid():
+            errors = serializer.errors
+            first_field = next(iter(errors))
+            error_msg = errors[first_field][0]
+            
             return Response(
-                {'error': serializer.errors},
+                {'error': error_msg},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         user = serializer.save()
 
-        # Aktivatsiya kodini generatsiya qilish va yuborish
-        code = ''.join(random.choices(string.digits, k=6))
-        cache.set(f'activation_code_{user.id}', code, timeout=300)  # 5 daqiqa
+        email = user.email 
 
-        # Email yuborish
+        code = ''.join(random.choices(string.digits, k=6))
+
+        cache_key = f'activation_code_{user.id}'
+        cache_data = {
+            'email': email,
+            'code': code,
+            'ip_address': ip_address,
+            'user_id': user.id
+        }
+        cache.set(cache_key, cache_data, timeout=300) 
+
         try:
             send_mail(
                 subject='Aktivatsiya kodi',
@@ -75,7 +116,6 @@ class UserRegistrationView(APIView):
                 fail_silently=False,
             )
         except Exception as e:
-            # Agar email yuborilmasa ham user yaratilgan bo'ladi
             pass
 
         response_data = {
@@ -91,6 +131,7 @@ class SendActivationCodeView(APIView):
     """
     Foydalanuvchiga email orqali 6 raqamli aktivatsiya kodini yuboradi.
     Kod 5 daqiqa davomida amal qiladi.
+    Har safar yangi IP'dan so'rov kelganda eski cache bekor qilinadi.
     """
     permission_classes = [AllowAny]
 
@@ -126,12 +167,17 @@ class SendActivationCodeView(APIView):
         serializer = SendActivationCodeSerializer(data=request.data)
 
         if not serializer.is_valid():
+            errors = serializer.errors
+            first_field = next(iter(errors))
+            error_msg = errors[first_field][0]
+            
             return Response(
-                {'error': serializer.errors},
+                {'error': error_msg},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         email = serializer.validated_data['email']
+        ip_address = get_client_ip(request)
 
         try:
             user = User.objects.get(email=email)
@@ -142,22 +188,31 @@ class SendActivationCodeView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Oxirgi kod yuborilgan vaqtni tekshirish
-            last_sent = cache.get(f'last_code_sent_{user.id}')
-            if last_sent:
-                return Response(
-                    {'error': 'Iltimos, yangi kod so\'rash uchun 1 daqiqa kuting'},
-                    status=status.HTTP_429_TOO_MANY_REQUESTS
-                )
+            cache_key = f'activation_code_{user.id}'
+            cached_data = cache.get(cache_key)
 
-            # 6 xonali kod generatsiya
+            if cached_data:
+                if cached_data.get('ip_address') == ip_address:
+                    last_sent_key = f'last_code_sent_{user.id}_{ip_address}'
+                    if cache.get(last_sent_key):
+                        return Response(
+                            {'error': 'Iltimos, yangi kod so\'rash uchun 1 daqiqa kuting'},
+                            status=status.HTTP_429_TOO_MANY_REQUESTS
+                        )
+                else:
+                    cache.delete(cache_key)
+
             code = ''.join(random.choices(string.digits, k=6))
 
-            # Kodni saqlash
-            cache.set(f'activation_code_{user.id}', code, timeout=300)
-            cache.set(f'last_code_sent_{user.id}', True, timeout=60)
+            cache_data = {
+                'email': email,
+                'code': code,
+                'ip_address': ip_address,
+                'user_id': user.id
+            }
+            cache.set(cache_key, cache_data, timeout=300)
+            cache.set(f'last_code_sent_{user.id}_{ip_address}', True, timeout=60)
 
-            # Email yuborish
             try:
                 send_mail(
                     subject='Aktivatsiya kodi',
@@ -191,6 +246,7 @@ class VerifyActivationCodeView(APIView):
     """
     Yuborilgan aktivatsiya kodini tekshiradi, akkountni aktivlashtiradi
     va JWT tokenlarni qaytaradi (avtomatik login).
+    IP address ham tekshiriladi - faqat kod yuborilgan qurilmadan tasdiqlash mumkin.
     """
     permission_classes = [AllowAny]
 
@@ -205,6 +261,10 @@ class VerifyActivationCodeView(APIView):
                 response=ErrorResponseSerializer,
                 description='Noto\'g\'ri kod yoki kod muddati tugagan'
             ),
+            403: OpenApiResponse(
+                response=ErrorResponseSerializer,
+                description='Boshqa qurilmadan tasdiqlash mumkin emas'
+            ),
             404: OpenApiResponse(
                 response=ErrorResponseSerializer,
                 description='Foydalanuvchi topilmadi'
@@ -218,13 +278,18 @@ class VerifyActivationCodeView(APIView):
         serializer = VerifyActivationCodeSerializer(data=request.data)
 
         if not serializer.is_valid():
+            errors = serializer.errors
+            first_field = next(iter(errors))
+            error_msg = errors[first_field][0]
+            
             return Response(
-                {'error': serializer.errors},
+                {'error': error_msg},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         email = serializer.validated_data['email']
         code = serializer.validated_data['code']
+        ip_address = get_client_ip(request)
 
         try:
             user = User.objects.get(email=email)
@@ -235,38 +300,37 @@ class VerifyActivationCodeView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            saved_code = cache.get(f'activation_code_{user.id}')
+            cache_key = f'activation_code_{user.id}'
+            cached_data = cache.get(cache_key)
 
-            if not saved_code:
+            if not cached_data:
                 return Response(
                     {'error': 'Aktivatsiya kodi muddati tugagan. Yangi kod so\'rang'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            if saved_code == code:
-                # Akkountni aktivlashtirish
+            # IP address tekshiruvi
+            if cached_data.get('ip_address') != ip_address:
+                return Response(
+                    {
+                        'error': 'Kod boshqa qurilmaga yuborilgan. Kod yuborilgan qurilmadan tasdiqlang yoki yangi kod so\'rang'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            if cached_data.get('code') == code:
                 user.is_active = True
                 user.save()
 
-                # Cache'dan kodni o'chirish
-                cache.delete(f'activation_code_{user.id}')
-                cache.delete(f'last_code_sent_{user.id}')
+                cache.delete(cache_key)
+                cache.delete(f'last_code_sent_{user.id}_{ip_address}')
 
-                # JWT tokenlarni generatsiya qilish
                 refresh = RefreshToken.for_user(user)
 
                 response_data = {
                     'success': True,
                     'message': 'Akkount muvaffaqiyatli aktivlashtirildi',
-                    'email': email,
                     'access': str(refresh.access_token),
                     'refresh': str(refresh),
-                    'user': {
-                        'id': user.id,
-                        'email': user.email,
-                        'phone_number': user.phone_number,
-                        'full_name': user.full_name,
-                    }
                 }
 
                 return Response(response_data, status=status.HTTP_200_OK)
@@ -318,8 +382,12 @@ class UserLoginView(APIView):
         serializer = UserLoginSerializer(data=request.data)
 
         if not serializer.is_valid():
+            errors = serializer.errors
+            first_field = next(iter(errors))
+            error_msg = errors[first_field][0]
+            
             return Response(
-                {'error': serializer.errors},
+                {'error': error_msg},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -329,21 +397,18 @@ class UserLoginView(APIView):
         try:
             user = User.objects.get(email=email)
 
-            # Parolni tekshirish
             if not user.check_password(password):
                 return Response(
                     {'error': 'Email yoki parol noto\'g\'ri'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Aktivatsiya tekshiruvi
             if not user.is_active:
                 return Response(
                     {'error': 'Akkount aktivlashtirilmagan. Iltimos, emailingizga yuborilgan kodni kiriting'},
                     status=status.HTTP_401_UNAUTHORIZED
                 )
 
-            # JWT tokenlarni generatsiya qilish
             refresh = RefreshToken.for_user(user)
 
             response_data = {
@@ -351,12 +416,6 @@ class UserLoginView(APIView):
                 'message': 'Login muvaffaqiyatli',
                 'access': str(refresh.access_token),
                 'refresh': str(refresh),
-                'user': {
-                    'id': user.id,
-                    'email': user.email,
-                    'phone_number': user.phone_number,
-                    'full_name': user.full_name,
-                }
             }
 
             return Response(response_data, status=status.HTTP_200_OK)
@@ -366,4 +425,216 @@ class UserLoginView(APIView):
                 {'error': 'Email yoki parol noto\'g\'ri'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+class ProfilePhotoUpdateView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+    serializer_class = ProfilePhotoSerializer
+
+    @swagger_auto_schema(
+        manual_parameters=[
+            openapi.Parameter(
+                name='profile_photo',
+                in_=openapi.IN_FORM,
+                type=openapi.TYPE_FILE,
+                required=True
+            )
+        ]
+    )
+    def patch(self, request):
+        user = request.user
+
+        photo = request.FILES.get("profile_photo")
+        if not photo:
+            return Response({"error": "profile_photo is required"}, status=400)
+
+        user.profile_photo = photo
+        user.save()
+
+        return Response({"message": "Profile photo updated successfully"})
+
+
+class CustomUserViewSet(UserViewSet):
+
+    # 🔹 Faqat update (PUT)
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
+    # 🔹 Faqat partial update (PATCH)
+    def partial_update(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+
+    # 🔹 Faqat delete (DELETE)
+    def destroy(self, request, *args, **kwargs):
+        return super().destroy(request, *args, **kwargs)
+
+    # ❌ GET /users/ — o‘chiramiz
+    @swagger_auto_schema(auto_schema=None)
+    def list(self, request, *args, **kwargs):
+        return Response(
+            {"detail": "List endpoint disabled."},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+    # ❌ GET /users/{id}/ — o‘chiramiz
+    @swagger_auto_schema(auto_schema=None)
+    def retrieve(self, request, *args, **kwargs):
+        return Response(
+            {"detail": "Retrieve endpoint disabled."},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+    # ❌ POST /users/ — register endpointni ham bloklaymiz
+    @swagger_auto_schema(auto_schema=None)
+    def create(self, request, *args, **kwargs):
+        return Response(
+            {"detail": "Registration disabled."},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+    # ❌ Djoser actionlarini o‘chirib qo‘yamiz
+    @swagger_auto_schema(auto_schema=None)
+    def reset_password(self, request, *args, **kwargs):
+        return Response({"detail": "Disabled."}, status=status.HTTP_404_NOT_FOUND)
+
+    @swagger_auto_schema(auto_schema=None)
+    def activation(self, request, *args, **kwargs):
+        return Response({"detail": "Disabled."}, status=status.HTTP_404_NOT_FOUND)
+
+
+class DeviceCreateView(APIView):
+    """
+    Authenticated user uchun yangi device yaratish.
+    IP address avtomatik olinadi.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        request=DeviceCreateSerializer,
+        responses={
+            201: OpenApiResponse(
+                response=DeviceCreateResponseSerializer,
+                description='Device muvaffaqiyatli yaratildi'
+            ),
+            400: OpenApiResponse(
+                response=ErrorResponseSerializer,
+                description='Validatsiya xatosi'
+            ),
+        },
+        tags=['Devices'],
+        summary='Yangi device qo\'shish',
+        description='Joriy user uchun yangi qurilma qo\'shish'
+    )
+    def post(self, request):
+        serializer = DeviceCreateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(
+                {'error': serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # IP address avtomatik olish
+        ip_address = get_client_ip(request)
+
+        # Device yaratish
+        device = Device.objects.create(
+            user=request.user,
+            device_ip=ip_address,
+            device_hardware=serializer.validated_data.get('device_hardware', ''),
+            device_name=serializer.validated_data.get('device_name', ''),
+            location_city=serializer.validated_data.get('location_city', ''),
+        )
+
+        response_data = {
+            'success': True,
+            'message': 'Qurilma muvaffaqiyatli qo\'shildi',
+            'device': DeviceSerializer(device).data
+        }
+
+        return Response(response_data, status=status.HTTP_201_CREATED)
+
+
+class DeviceDeleteView(APIView):
+    """
+    Device'ni o'chirish (faqat o'z device'larini o'chirishi mumkin)
+    """
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                response=DeviceDeleteResponseSerializer,
+                description='Device muvaffaqiyatli o\'chirildi'
+            ),
+            404: OpenApiResponse(
+                response=ErrorResponseSerializer,
+                description='Device topilmadi'
+            ),
+            403: OpenApiResponse(
+                response=ErrorResponseSerializer,
+                description='Bu device sizga tegishli emas'
+            ),
+        },
+        tags=['Devices'],
+        summary='Device o\'chirish',
+        description='UID orqali qurilmani o\'chirish'
+    )
+    def delete(self, request, uid):
+        try:
+            device = Device.objects.get(uid=uid)
+
+            # Tekshirish: device joriy user'ga tegishli bo'lishi kerak
+            if device.user != request.user:
+                return Response(
+                    {'error': 'Bu qurilma sizga tegishli emas'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            device.delete()
+
+            return Response(
+                {
+                    'success': True,
+                    'message': 'Qurilma muvaffaqiyatli o\'chirildi'
+                },
+                status=status.HTTP_200_OK
+            )
+
+        except Device.DoesNotExist:
+            return Response(
+                {'error': 'Qurilma topilmadi'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+
+class DeviceListView(APIView):
+    """
+    Joriy user'ning barcha qurilmalarini ko'rish (bonus)
+    """
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                response=DeviceSerializer(many=True),
+                description='User qurilmalari ro\'yxati'
+            ),
+        },
+        tags=['Devices'],
+        summary='Qurilmalar ro\'yxati',
+        description='Joriy user\'ning barcha qurilmalarini ko\'rish'
+    )
+    def get(self, request):
+        devices = Device.objects.filter(user=request.user)
+        serializer = DeviceSerializer(devices, many=True)
+
+        return Response(
+            {
+                'success': True,
+                'count': devices.count(),
+                'devices': serializer.data
+            },
+            status=status.HTTP_200_OK
+        )
 
