@@ -1,5 +1,4 @@
 import geocoder
-import ipinfo
 from user_agents import parse
 
 def get_client_ip(request):
