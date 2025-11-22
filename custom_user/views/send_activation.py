@@ -103,7 +103,7 @@ class SendActivationCodeView(APIView):
                 'ip_address': ip_address,
                 'user_id': user.id
             }
-            cache.set(cache_key, cache_data, timeout=20)
+            cache.set(cache_key, cache_data, timeout=200)
             cache.set(f'last_code_sent_{user.id}_{ip_address}', True, timeout=60)
 
             try:
