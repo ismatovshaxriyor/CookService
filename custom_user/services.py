@@ -1,4 +1,4 @@
-import requests
+import geocoder
 import ipinfo
 from user_agents import parse
 
@@ -12,13 +12,8 @@ def get_client_ip(request):
 
 
 def get_location_by_ip(ip_address: str):
-    access_token = "b500a2af8230a8"
-
-    handler = ipinfo.getHandler(access_token)
-
-    details = handler.getDetails(ip_address)
-
-    return details
+    g = geocoder.ip(ip_address)
+    return g.city
 
 
 

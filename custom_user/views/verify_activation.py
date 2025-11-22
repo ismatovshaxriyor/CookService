@@ -68,8 +68,7 @@ class VerifyActivationCodeView(APIView):
         ip_address = get_client_ip(request)
         device = get_device_info(request)
         device_model = device.get('device_model')
-        location = get_location_by_ip(ip_address)
-        location_city = location.city
+        location_city = get_location_by_ip(ip_address)
 
         try:
             user = User.objects.get(email=email)
