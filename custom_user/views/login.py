@@ -17,10 +17,6 @@ from custom_user.services import get_device_info, get_location_by_ip, get_client
 User = get_user_model()
 
 class UserLoginView(APIView):
-    """
-    User login qilish. Email va parol tekshiriladi,
-    agar to'g'ri bo'lsa JWT tokenlar qaytariladi.
-    """
     permission_classes = [AllowAny]
 
     @extend_schema(
@@ -56,7 +52,7 @@ class UserLoginView(APIView):
             error_msg = errors[first_field][0]
 
             return Response(
-                {'error': error_msg},
+                {'success': False, 'error': error_msg, 'errorStatus': 'data_credential'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -74,40 +70,50 @@ class UserLoginView(APIView):
 
             if not user.check_password(password):
                 return Response(
-                    {'error': 'Email yoki parol noto\'g\'ri'},
+                    {'success': False, 'error': 'Incorrect email or password', 'errorStatus': 'data_credential'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
             if not user.is_active:
                 return Response(
-                    {'error': 'Akkount aktivlashtirilmagan. Iltimos, emailingizga yuborilgan kodni kiriting'},
+                    {'succes': False, 'error': 'Account not actvated', 'errorStatus': 'unauthorized'},
                     status=status.HTTP_401_UNAUTHORIZED
                 )
-            new_device, created = Device.objects.get(
+            new_device, created = Device.objects.get_or_create(
                 user=user,
                 device_hardware=device_hardware,
                 defaults={"device_name": device_model, "locations_city": location_city}
             )
 
+            message = "Login successfull"
             if created:
-                message = 'Yangi device qo\'shildi'
+                message += 'New device detected'
             else:
-                message = "Login muvaffaqiyatli"
+                return Response(
+                    {
+                        'success': False,
+                        'error': "This device is already exists",
+                        'errorStatus': 'exists'
+                    }
+                )
+
 
             refresh = RefreshToken.for_user(user)
 
             response_data = {
                 'success': True,
                 'message': message,
-                'access': str(refresh.access_token),
-                'refresh': str(refresh),
+                'login_response': {
+                    'access': str(refresh.access_token),
+                    'refresh': str(refresh),
+                }
             }
 
             return Response(response_data, status=status.HTTP_200_OK)
 
         except User.DoesNotExist:
             return Response(
-                {'error': 'Email yoki parol noto\'g\'ri'},
+                {'success': False, 'error': 'Incorrect email or password', 'errorStatus': 'data_credential'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 

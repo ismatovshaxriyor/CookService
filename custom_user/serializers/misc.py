@@ -14,4 +14,6 @@ class ProfilePhotoSerializer(serializers.Serializer):
     profile_photo = serializers.ImageField()
 
 class ErrorResponseSerializer(serializers.Serializer):
+    success = serializers.BooleanField()
     error = serializers.CharField()
+    errorStatus = serializers.CharField()

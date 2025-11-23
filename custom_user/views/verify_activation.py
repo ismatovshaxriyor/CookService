@@ -19,11 +19,6 @@ User = get_user_model()
 
 
 class VerifyActivationCodeView(APIView):
-    """
-    Yuborilgan aktivatsiya kodini tekshiradi, akkountni aktivlashtiradi
-    va JWT tokenlarni qaytaradi (avtomatik login).
-    IP address ham tekshiriladi - faqat kod yuborilgan qurilmadan tasdiqlash mumkin.
-    """
     permission_classes = [AllowAny]
 
     @extend_schema(
@@ -59,7 +54,7 @@ class VerifyActivationCodeView(APIView):
             error_msg = errors[first_field][0]
 
             return Response(
-                {'error': error_msg},
+                {'success': False, 'error': error_msg, 'errorStatus': 'data_credential'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -75,7 +70,7 @@ class VerifyActivationCodeView(APIView):
 
             if user.is_active:
                 return Response(
-                    {'error': 'Bu akkount allaqachon aktivlashtirilgan'},
+                    {'success': False, 'error': 'This account is already activated.', 'errorStatus': 'already_have'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
@@ -84,15 +79,14 @@ class VerifyActivationCodeView(APIView):
 
             if not cached_data:
                 return Response(
-                    {'error': 'Aktivatsiya kodi muddati tugagan. Yangi kod so\'rang'},
+                    {'success': False, 'error': 'Code has expired, request a new code', 'errorStatus': 'time_out'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
             # IP address tekshiruvi
             if cached_data.get('ip_address') != ip_address:
                 return Response(
-                    {
-                        'error': 'Kod boshqa qurilmaga yuborilgan. Kod yuborilgan qurilmadan tasdiqlang yoki yangi kod so\'rang'},
+                    {'success': False, 'error': 'This code was sent for another device.', 'errorStatus': 'another_device'},
                     status=status.HTTP_403_FORBIDDEN
                 )
 
@@ -103,7 +97,7 @@ class VerifyActivationCodeView(APIView):
                 device = Device.objects.create(
                     user=user,
                     device_ip=ip_address,
-                    device_hardware=serializer.validated_data.get('device_hardware', ''),
+                    device_hardware=serializer.validated_data.get('device_hardware'),
                     device_name=device_model,
                     location_city=location_city,
                 )
@@ -115,21 +109,23 @@ class VerifyActivationCodeView(APIView):
 
                 response_data = {
                     'success': True,
-                    'message': 'Akkount muvaffaqiyatli aktivlashtirildi',
-                    'access': str(refresh.access_token),
-                    'refresh': str(refresh),
+                    'message': 'Account successfully activated',
+                    'response': {
+                        'access': str(refresh.access_token),
+                        'refresh': str(refresh),
+                    }
                 }
 
                 return Response(response_data, status=status.HTTP_200_OK)
             else:
                 return Response(
-                    {'error': 'Noto\'g\'ri aktivatsiya kodi'},
+                    {'success': False, 'error': 'Incorrect verify code.', 'errorStatus': 'data_credential'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
         except User.DoesNotExist:
             return Response(
-                {'error': 'Bu email bilan foydalanuvchi topilmadi'},
+                {'success': False, 'error': 'User not found', 'errorStatus': 'data_credential'},
                 status=status.HTTP_404_NOT_FOUND
             )
 

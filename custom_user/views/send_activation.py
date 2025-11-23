@@ -65,7 +65,7 @@ class SendActivationCodeView(APIView):
             error_msg = errors[first_field][0]
 
             return Response(
-                {'error': error_msg},
+                {'success': False, 'error': error_msg, 'errorStatus': 'data_credential'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -77,7 +77,7 @@ class SendActivationCodeView(APIView):
 
             if user.is_active:
                 return Response(
-                    {'error': 'Bu akkount allaqachon aktivlashtirilgan'},
+                    {'status': False, 'error': 'This account is already activated.', 'errorStatus': 'already_have'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
@@ -89,7 +89,8 @@ class SendActivationCodeView(APIView):
                     last_sent_key = f'last_code_sent_{user.id}_{ip_address}'
                     if cache.get(last_sent_key):
                         return Response(
-                            {'error': 'Iltimos, yangi kod so\'rash uchun 1 daqiqa kuting'},
+                            {'status': False, 'error': 'Please wait 1 minute to request a new code.',
+                             'errorStatus': 'time_out'},
                             status=status.HTTP_429_TOO_MANY_REQUESTS
                         )
                 else:
@@ -116,21 +117,20 @@ class SendActivationCodeView(APIView):
                 )
             except Exception as e:
                 return Response(
-                    {'error': 'Email yuborishda xatolik yuz berdi'},
+                    {'success': False, 'error': 'An error occurred while sending the email.', "errorStatus": "data_credential"},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
 
             response_data = {
                 'success': True,
                 'message': 'Aktivatsiya kodi emailingizga yuborildi',
-                'email': email
             }
 
             return Response(response_data, status=status.HTTP_200_OK)
 
         except User.DoesNotExist:
             return Response(
-                {'error': 'Bu email bilan foydalanuvchi topilmadi'},
+                {'success': False, 'error': 'No user found with this email.', 'errorStatus': 'data_credential'},
                 status=status.HTTP_404_NOT_FOUND
             )
 

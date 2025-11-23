@@ -21,12 +21,6 @@ User = get_user_model()
 
 
 class UserRegistrationView(APIView):
-    """
-    Yangi user ro'yxatdan o'tish. User yaratiladi lekin is_active=False bo'ladi.
-    Keyin email'ga aktivatsiya kodi yuboriladi.
-    IP address bilan ishlaydi - har safar yangi qurilmadan register qilganda
-    eski cache bekor qilinadi va yangi kod yuboriladi.
-    """
     permission_classes = [AllowAny]
 
     @extend_schema(
@@ -38,7 +32,7 @@ class UserRegistrationView(APIView):
             ),
             400: OpenApiResponse(
                 response=ErrorResponseSerializer,
-                description='Validatsiya xatosi'
+                description='"This email already exists" or "Validation error"'
             ),
         },
         tags=['Authentication'],
@@ -52,7 +46,7 @@ class UserRegistrationView(APIView):
         if email:
             if User.objects.filter(email=email, is_active=True).exists():
                 return Response(
-                    {'error': 'Bu email allaqachon ro\'yxatdan o\'tgan va aktivlashtirilgan'},
+                    {"success": False, 'error': 'This email already exists', "errorStatus": "already_have"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
@@ -70,7 +64,7 @@ class UserRegistrationView(APIView):
             error_msg = errors[first_field][0]
 
             return Response(
-                {'error': error_msg},
+                {"success": False, 'error': error_msg, "errorStatus": "data_credential"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -102,8 +96,7 @@ class UserRegistrationView(APIView):
 
         response_data = {
             'success': True,
-            'message': 'Ro\'yxatdan o\'tish muvaffaqiyatli. Email ga aktivatsiya kodi yuborildi',
-            'email': user.email
+            'message': 'We can send code to your email',
         }
 
         return Response(response_data, status=status.HTTP_201_CREATED)
