@@ -94,7 +94,7 @@ class UserLoginView(APIView):
             new_device, created = Device.objects.get_or_create(
                 user=user,
                 device_hardware=device_hardware,
-                defaults={"device_name": device_model, "locations_city": location_city}
+                defaults={"device_name": device_model, "location_city": location_city}
             )
 
             message = "Login successfull"
