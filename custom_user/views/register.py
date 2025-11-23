@@ -46,7 +46,7 @@ class UserRegistrationView(APIView):
         if email:
             if User.objects.filter(email=email, is_active=True).exists():
                 return Response(
-                    {"success": False, 'error': 'This email already exists', "errorStatus": "already_have"},
+                    {"success": False, 'error': 'This email already exists', "errorStatus": "exists"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 

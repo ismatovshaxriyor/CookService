@@ -68,6 +68,18 @@ class UserLoginView(APIView):
         try:
             user = User.objects.get(email=email)
 
+            device_exists = user.devices.filter(device_hardware=device_hardware).exists()
+
+            if device_exists:
+                return  Response(
+                    {
+                        'success': False,
+                        'error': "This device is already exists",
+                        'errorStatus': 'already_have'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
             if not user.check_password(password):
                 return Response(
                     {'success': False, 'error': 'Incorrect email or password', 'errorStatus': 'data_credential'},

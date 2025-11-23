@@ -70,7 +70,7 @@ class VerifyActivationCodeView(APIView):
 
             if user.is_active:
                 return Response(
-                    {'success': False, 'error': 'This account is already activated.', 'errorStatus': 'already_have'},
+                    {'success': False, 'error': 'This account is already activated.', 'errorStatus': 'exists'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
@@ -83,7 +83,6 @@ class VerifyActivationCodeView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # IP address tekshiruvi
             if cached_data.get('ip_address') != ip_address:
                 return Response(
                     {'success': False, 'error': 'This code was sent for another device.', 'errorStatus': 'another_device'},

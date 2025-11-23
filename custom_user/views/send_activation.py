@@ -123,7 +123,7 @@ class SendActivationCodeView(APIView):
 
             response_data = {
                 'success': True,
-                'message': 'Aktivatsiya kodi emailingizga yuborildi',
+                'message': 'The activation code has been sent to your email.',
             }
 
             return Response(response_data, status=status.HTTP_200_OK)

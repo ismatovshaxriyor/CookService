@@ -12,6 +12,9 @@ urlpatterns = [
     path('login/', UserLoginView.as_view(), name='user-login'),
     path("me/update_photo/", ProfilePhotoUpdateView.as_view(), name='update-photo'),
 
+    path('password/forgot/', ForgotPasswordView.as_view(), name='forgot-password'),
+    path('password/reset/', ResetPasswordView.as_view(), name='reset-password'),
+
     path('', include(router.urls)),
 
     path('devices/', DeviceListView.as_view(), name='device-list'),
