@@ -13,9 +13,6 @@ from custom_user.models import Device
 
 
 class DeviceDeleteView(APIView):
-    """
-    Device'ni o'chirish (faqat o'z device'larini o'chirishi mumkin)
-    """
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -66,9 +63,6 @@ class DeviceDeleteView(APIView):
 
 
 class DeviceListView(APIView):
-    """
-    Joriy user'ning barcha qurilmalarini ko'rish (bonus)
-    """
     permission_classes = [IsAuthenticated]
 
     @extend_schema(

@@ -13,6 +13,9 @@ class CustomUserSerializer(UserSerializer):
 class ProfilePhotoSerializer(serializers.Serializer):
     profile_photo = serializers.ImageField()
 
+class SendMailSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
 class ErrorResponseSerializer(serializers.Serializer):
     success = serializers.BooleanField()
     error = serializers.CharField()

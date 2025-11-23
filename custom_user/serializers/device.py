@@ -8,7 +8,7 @@ class DeviceSerializer(serializers.ModelSerializer):
     """Device ma'lumotlarini ko'rsatish uchun"""
     class Meta:
         model = Device
-        fields = ('uid', 'device_ip', 'device_hardware', 'device_name', 'location_city', 'created_at', 'last_used', 'is_active')
+        fields = ('uid', 'device_ip', 'device_hardware', 'device_name', 'location_city', 'created_at', 'last_online', 'is_active')
         read_only_fields = ('uid', 'created_at', 'last_used')
 
 
