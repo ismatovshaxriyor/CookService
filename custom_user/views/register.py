@@ -81,7 +81,7 @@ class UserRegistrationView(APIView):
             'ip_address': ip_address,
             'user_id': user.id
         }
-        cache.set(cache_key, cache_data, timeout=200)
+        cache.set(cache_key, cache_data, timeout=20)
 
         try:
             send_mail(
