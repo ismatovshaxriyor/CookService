@@ -19,7 +19,13 @@ from custom_user.services import get_client_ip
 
 User = get_user_model()
 
+
 class ForgotPasswordView(APIView):
+    """
+    Parolni unutgan user uchun email'ga 6 raqamli kod yuborish.
+    IP address bilan ishlaydi - har safar yangi IP'dan so'rov kelsa,
+    eski kod bekor qilinadi va yangi kod yuboriladi.
+    """
     permission_classes = [AllowAny]
 
     @extend_schema(
@@ -43,7 +49,7 @@ class ForgotPasswordView(APIView):
             ),
         },
         tags=['Password Reset'],
-        summary='Unutilgan parolni tiklash',
+        summary='Parolni unutdim',
         description='Email\'ga parol tiklash kodini yuborish'
     )
     def post(self, request):
@@ -51,7 +57,7 @@ class ForgotPasswordView(APIView):
 
         if not serializer.is_valid():
             return Response(
-                {'success': False, 'error': serializer.errors, 'errorStatus': "data_credential"},
+                {'error': serializer.errors},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -61,37 +67,44 @@ class ForgotPasswordView(APIView):
         try:
             user = User.objects.get(email=email)
 
+            # Agar user active bo'lmasa
             if not user.is_active:
                 return Response(
-                    {'success': False, 'error': 'This account has not been activated.', 'errorStatus': 'not_activated'},
+                    {'error': 'Bu akkount aktivlashtirilmagan'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
+            # Oxirgi kod yuborilgan vaqtni tekshirish
             cache_key = f'reset_password_code_{user.id}'
             cached_data = cache.get(cache_key)
 
             if cached_data:
+                # Agar IP bir xil bo'lsa va 1 daqiqa o'tmagan bo'lsa
                 if cached_data.get('ip_address') == ip_address:
                     last_sent_key = f'last_reset_sent_{user.id}_{ip_address}'
                     if cache.get(last_sent_key):
                         return Response(
-                            {'status': False, 'error': 'Please wait 1 minute to request a new code.', 'errorStatus': 'time_out'},
-                             status=status.HTTP_429_TOO_MANY_REQUESTS
+                            {'error': 'Iltimos, yangi kod so\'rash uchun 1 daqiqa kuting'},
+                            status=status.HTTP_429_TOO_MANY_REQUESTS
                         )
                 else:
+                    # Boshqa IP'dan kelsa, eski cache'ni o'chiramiz
                     cache.delete(cache_key)
 
+            # Yangi kod generatsiya
             code = ''.join(random.choices(string.digits, k=6))
 
+            # Cache'ga saqlash
             cache_data = {
                 'email': email,
                 'code': code,
                 'ip_address': ip_address,
                 'user_id': user.id
             }
-            cache.set(cache_key, cache_data, timeout=20)
+            cache.set(cache_key, cache_data, timeout=600)  # 10 daqiqa
             cache.set(f'last_reset_sent_{user.id}_{ip_address}', True, timeout=60)
 
+            # Email yuborish
             try:
                 send_mail(
                     subject='Parolni tiklash kodi',
@@ -102,21 +115,22 @@ class ForgotPasswordView(APIView):
                 )
             except Exception as e:
                 return Response(
-                    {'success': False, 'error': 'An error occurred while sending the email.',
-                     "errorStatus": "data_credential"},
+                    {'error': 'Email yuborishda xatolik yuz berdi'},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
 
             response_data = {
                 'success': True,
-                'message': 'A password recovery code has been sent to your email.',
+                'message': 'Parol tiklash kodi emailingizga yuborildi',
+                'email': email
             }
 
             return Response(response_data, status=status.HTTP_200_OK)
 
         except User.DoesNotExist:
             return Response(
-                {'success': False, 'error': 'No user found with this email.', 'errorStatus': 'not_registered'},
+                {'error': 'Bu email bilan foydalanuvchi topilmadi'},
                 status=status.HTTP_404_NOT_FOUND
             )
+
 

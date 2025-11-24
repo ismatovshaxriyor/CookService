@@ -4,7 +4,6 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 class SendActivationCodeSerializer(serializers.Serializer):
-    """Aktivatsiya kodini yuborish uchun serializer"""
     email = serializers.EmailField(
         required=True,
         help_text="Foydalanuvchi email manzili"
@@ -12,13 +11,11 @@ class SendActivationCodeSerializer(serializers.Serializer):
 
 
 class SendActivationCodeResponseSerializer(serializers.Serializer):
-    """Aktivatsiya kodi yuborilgandan keyin response"""
     success = serializers.BooleanField()
     message = serializers.CharField()
     email = serializers.EmailField()
 
 class VerifyActivationCodeSerializer(serializers.Serializer):
-    """Aktivatsiya kodini tekshirish uchun serializer"""
     email = serializers.EmailField(
         required=True,
         help_text="Foydalanuvchi email manzili"
@@ -29,7 +26,8 @@ class VerifyActivationCodeSerializer(serializers.Serializer):
         required=True,
         help_text="6 raqamli aktivatsiya kodi"
     )
-    device_hardware = serializers.CharField()
+    device_hardware = serializers.CharField(allow_null=True)
+    request_type = serializers.CharField()
 
     def validate_code(self, value):
         if not value.isdigit():
@@ -38,7 +36,6 @@ class VerifyActivationCodeSerializer(serializers.Serializer):
 
 
 class VerifyActivationCodeResponseSerializer(serializers.Serializer):
-    """Aktivatsiya muvaffaqiyatli bo'lgandan keyin JWT tokenlar bilan response"""
     success = serializers.BooleanField()
     message = serializers.CharField()
     access = serializers.CharField(help_text="JWT Access Token")

@@ -8,29 +8,43 @@ from drf_spectacular.utils import extend_schema, OpenApiResponse
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from custom_user.serializers import (
-    VerifyActivationCodeSerializer,
-    VerifyActivationCodeResponseSerializer,
+    VerifyCodeUniversalSerializer,
     ErrorResponseSerializer,
+    DeviceSerializer,
+     VerifyCodeUniversalResponseSerializer,
 )
-from custom_user.services import get_client_ip, get_device_info, get_location_by_ip
+from custom_user.services import get_client_ip
 from custom_user.models import Device
 
 User = get_user_model()
 
 
-class VerifyActivationCodeView(APIView):
+class VerifyCodeUniversalView(APIView):
+    """
+    Universal kod tekshirish API.
+
+    request_type='register':
+        - User aktivatsiya qilinadi
+        - JWT tokenlar beriladi
+        - Device yaratiladi (agar ma'lumotlar bo'lsa)
+
+    request_type='forgot':
+        - Faqat kod tekshiriladi
+        - Token BERILMAYDI
+        - Keyingi qadamda user login qilishi kerak
+    """
     permission_classes = [AllowAny]
 
     @extend_schema(
-        request=VerifyActivationCodeSerializer,
+        request=VerifyCodeUniversalSerializer,
         responses={
             200: OpenApiResponse(
-                response=VerifyActivationCodeResponseSerializer,
-                description='Akkount aktivlashtirildi va JWT tokenlar berildi'
+                response=VerifyCodeUniversalResponseSerializer,
+                description='Kod muvaffaqiyatli tasdiqlandi'
             ),
             400: OpenApiResponse(
                 response=ErrorResponseSerializer,
-                description='Noto\'g\'ri kod yoki kod muddati tugagan'
+                description='Noto\'g\'ri kod yoki validatsiya xatosi'
             ),
             403: OpenApiResponse(
                 response=ErrorResponseSerializer,
@@ -42,89 +56,129 @@ class VerifyActivationCodeView(APIView):
             ),
         },
         tags=['Authentication'],
-        summary='Aktivatsiya kodini tekshirish va login',
-        description='6 raqamli kodni tekshiradi, akkountni aktivlashtiradi va JWT tokenlar qaytaradi'
+        summary='Universal kod tekshirish',
+        description='Register yoki Forgot password uchun kodni tasdiqlash'
     )
     def post(self, request):
-        serializer = VerifyActivationCodeSerializer(data=request.data)
+        serializer = VerifyCodeUniversalSerializer(data=request.data)
 
         if not serializer.is_valid():
-            errors = serializer.errors
-            first_field = next(iter(errors))
-            error_msg = errors[first_field][0]
-
             return Response(
-                {'success': False, 'error': error_msg, 'errorStatus': 'data_credential'},
+                {'error': serializer.errors},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         email = serializer.validated_data['email']
         code = serializer.validated_data['code']
+        request_type = serializer.validated_data['request_type']
         ip_address = get_client_ip(request)
-        device = get_device_info(request)
-        device_model = device.get('device_model')
-        location_city = get_location_by_ip(ip_address)
 
         try:
             user = User.objects.get(email=email)
 
-            if user.is_active:
+            # Cache key request_type ga qarab tanlanadi
+            if request_type == 'register':
+                cache_key = f'activation_code_{user.id}'
+            elif request_type == 'forgot':
+                cache_key = f'reset_password_code_{user.id}'
+            else:
                 return Response(
-                    {'success': False, 'error': 'This account is already activated.', 'errorStatus': 'exists'},
+                    {'error': 'request_type faqat "register" yoki "forgot" bo\'lishi mumkin'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            cache_key = f'activation_code_{user.id}'
+            # Cache'dan ma'lumotlarni olish
             cached_data = cache.get(cache_key)
 
             if not cached_data:
                 return Response(
-                    {'success': False, 'error': 'Code has expired, request a new code', 'errorStatus': 'time_out'},
+                    {'error': 'Kod muddati tugagan. Yangi kod so\'rang'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
+            # IP address tekshiruvi
             if cached_data.get('ip_address') != ip_address:
                 return Response(
-                    {'success': False, 'error': 'This code was sent for another device.', 'errorStatus': 'another_device'},
+                    {
+                        'error': 'Kod boshqa qurilmaga yuborilgan. Kod yuborilgan qurilmadan tasdiqlang yoki yangi kod so\'rang'},
                     status=status.HTTP_403_FORBIDDEN
                 )
 
-            if cached_data.get('code') == code:
-                user.is_active = True
-                user.save()
-
-                device = Device.objects.create(
-                    user=user,
-                    device_ip=ip_address,
-                    device_hardware=serializer.validated_data.get('device_hardware'),
-                    device_name=device_model,
-                    location_city=location_city,
-                )
-
-                cache.delete(cache_key)
-                cache.delete(f'last_code_sent_{user.id}_{ip_address}')
-
-                refresh = RefreshToken.for_user(user)
-
-                response_data = {
-                    'success': True,
-                    'message': 'Account successfully activated',
-                    'response': {
-                        'access': str(refresh.access_token),
-                        'refresh': str(refresh),
-                    }
-                }
-
-                return Response(response_data, status=status.HTTP_200_OK)
-            else:
+            # Kodni tekshirish
+            if cached_data.get('code') != code:
                 return Response(
-                    {'success': False, 'error': 'Incorrect verify code.', 'errorStatus': 'data_credential'},
+                    {'error': 'Noto\'g\'ri kod'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
+            # ========== REGISTER TYPE ==========
+            if request_type == 'register':
+                # User aktivatsiya qilish
+                if user.is_active:
+                    return Response(
+                        {'error': 'Bu akkount allaqachon aktivlashtirilgan'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                user.is_active = True
+                user.save()
+
+                # Device yaratish (agar ma'lumotlar bo'lsa)
+                device = None
+                if serializer.validated_data.get('device_hardware') or serializer.validated_data.get('device_name'):
+                    device = Device.objects.create(
+                        user=user,
+                        device_ip=ip_address,
+                        device_hardware=serializer.validated_data.get('device_hardware', ''),
+                        device_name=serializer.validated_data.get('device_name', ''),
+                        location_city=serializer.validated_data.get('location_city', ''),
+                    )
+
+                # JWT tokenlarni generatsiya qilish
+                refresh = RefreshToken.for_user(user)
+
+                # Cache'ni tozalash
+                cache.delete(cache_key)
+                cache.delete(f'last_code_sent_{user.id}_{ip_address}')
+
+                response_data = {
+                    'success': True,
+                    'message': 'Akkount muvaffaqiyatli aktivlashtirildi',
+                    'access': str(refresh.access_token),
+                    'refresh': str(refresh),
+                }
+
+                # Device ma'lumotini qo'shish
+                if device:
+                    response_data['device'] = DeviceSerializer(device).data
+
+                return Response(response_data, status=status.HTTP_200_OK)
+
+            # ========== FORGOT TYPE ==========
+            elif request_type == 'forgot':
+                # Faqat kodni tasdiqlash, token BERMAYDI
+                if not user.is_active:
+                    return Response(
+                        {'error': 'Bu akkount aktivlashtirilmagan'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                # Cache'ni tozalash
+                cache.delete(cache_key)
+                cache.delete(f'last_reset_sent_{user.id}_{ip_address}')
+
+                response_data = {
+                    'success': True,
+                    'message': 'Kod tasdiqlandi. Endi login qiling',
+                    'request_type': 'forgot',
+                    'email': email
+                }
+
+                return Response(response_data, status=status.HTTP_200_OK)
+
         except User.DoesNotExist:
             return Response(
-                {'success': False, 'error': 'User not found', 'errorStatus': 'data_credential'},
+                {'error': 'Bu email bilan foydalanuvchi topilmadi'},
                 status=status.HTTP_404_NOT_FOUND
             )
 

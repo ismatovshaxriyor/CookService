@@ -8,7 +8,7 @@ router.register(r'users', CustomUserViewSet, basename='users')
 urlpatterns = [
     path('register/', UserRegistrationView.as_view(), name='user-register'),
     path('activation/send/', SendActivationCodeView.as_view(), name='send-activation-code'),
-    path('activation/verify/', VerifyActivationCodeView.as_view(), name='verify-activation-code'),
+    path('activation/verify/', VerifyCodeUniversalView.as_view(), name='verify-activation-code'),
     path('login/', UserLoginView.as_view(), name='user-login'),
     path("me/update_photo/", ProfilePhotoUpdateView.as_view(), name='update-photo'),
 
