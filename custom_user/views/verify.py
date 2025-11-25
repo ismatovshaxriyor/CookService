@@ -75,12 +75,9 @@ class VerifyCodeUniversalView(APIView):
         code = serializer.validated_data['code']
         request_type = serializer.validated_data['request_type']
         ip_address = get_client_ip(request)
-        try:
-            location_city = get_location_by_ip(ip_address)
-        except:
-            location_city = None
+        location_city = get_location_by_ip(ip_address)
         device = get_device_info(request)
-        device_model = device.get("device_model")
+        device_model = device.get('device_model')
 
         try:
             user = User.objects.get(email=email)
@@ -91,7 +88,7 @@ class VerifyCodeUniversalView(APIView):
                 cache_key = f'reset_password_code_{user.id}'
             else:
                 return Response(
-                    {'success': False, 'error': 'request_type can only be "register" or "forgot"', 'errorStatus': 'data_credential'},
+                    {'succes': False, 'error': 'request_type can only be "register" or "forgot"', 'errorStatus': 'data_credential'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
@@ -99,10 +96,11 @@ class VerifyCodeUniversalView(APIView):
 
             if not cached_data:
                 return Response(
-                    {'success': False, 'error': 'Code has expired. Request a new code.', 'errorStatus': 'time_out'},
+                    {'success': True, 'error': 'Code has expired. Request a new code.', 'errorStatus': 'timeout'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
+            # IP address tekshiruvi
             if cached_data.get('ip_address') != ip_address:
                 return Response(
                     { 'success': False,
@@ -111,17 +109,18 @@ class VerifyCodeUniversalView(APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
 
+            # Kodni tekshirish
             if cached_data.get('code') != code:
                 return Response(
-                    {'success': False, 'error': 'Invalid code', 'errorStatus': 'data_credential'},
+                    { 'success': False, 'error': 'Invalid code', 'errorStatus': 'data_credential'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
             # ========== REGISTER TYPE ==========
             if request_type == 'register':
                 if user.is_active:
-                    return Response(
-                        {'success': False, 'error': 'This account is already activated.', 'errorStatus': 'already_have'},
+                    return Response({'succes': False,
+                        'error': 'This account is already activated.', 'errorStatus': 'already_have'},
                         status=status.HTTP_400_BAD_REQUEST
                     )
 
@@ -129,26 +128,19 @@ class VerifyCodeUniversalView(APIView):
                 user.save()
 
                 device = None
-                if serializer.validated_data.get('device_hardware'):
-                    try:
-                        device = Device.objects.create(
-                            user=user,
-                            device_ip=ip_address,
-                            device_hardware=serializer.validated_data.get('device_hardware'),
-                            location_city=location_city,
-                            device_name=device_model
-                        )
-                    except:
-                        return Response(
-                            {
-                                'success': False,
-                                'error': 'device was not created.',
-                                'errorStatus': 'data_credential'
-                            }
-                        )
+                if serializer.validated_data.get('device_hardware') or serializer.validated_data.get('device_name'):
+                    device = Device.objects.create(
+                        user=user,
+                        device_ip=ip_address,
+                        device_hardware=serializer.validated_data.get('device_hardware'),
+                        device_name=device_model,
+                        location_city=location_city,
+                    )
 
+                # JWT tokenlarni generatsiya qilish
                 refresh = RefreshToken.for_user(user)
 
+                # Cache'ni tozalash
                 cache.delete(cache_key)
                 cache.delete(f'last_code_sent_{user.id}_{ip_address}')
 
@@ -161,6 +153,7 @@ class VerifyCodeUniversalView(APIView):
                     }
                 }
 
+
                 return Response(response_data, status=status.HTTP_200_OK)
 
             # ========== FORGOT TYPE ==========
@@ -171,12 +164,23 @@ class VerifyCodeUniversalView(APIView):
                         status=status.HTTP_400_BAD_REQUEST
                     )
 
+                import uuid as uuid_lib
+                reset_token = uuid_lib.uuid4()
+
+                reset_cache_key = f'password_reset_token_{reset_token}'
+                cache.set(reset_cache_key, {
+                    'user_id': user.id,
+                    'email': email,
+                    'ip_address': ip_address,
+                }, timeout=900)
+
                 cache.delete(cache_key)
                 cache.delete(f'last_reset_sent_{user.id}_{ip_address}')
 
                 response_data = {
                     'success': True,
-                    'message': 'Code verified. Login now',
+                    'message': 'The code has been verified. Now set your new password.',
+                    'reset_token': str(reset_token)
                 }
 
                 return Response(response_data, status=status.HTTP_200_OK)

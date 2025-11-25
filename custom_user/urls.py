@@ -16,6 +16,7 @@ urlpatterns = [
     path('me/notification/', NotificationSettingsView.as_view(), name='update_notification'),
 
     path('password/forgot/', ForgotPasswordView.as_view(), name='forgot-password'),
+    path('password/forgot/complete/', ForgotPasswordCompleteView.as_view(), name='forgot-password-complete'),
     path('password/reset/', ResetPasswordView.as_view(), name='reset-password'),
 
     path('', include(router.urls)),
