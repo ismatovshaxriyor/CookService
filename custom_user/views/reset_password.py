@@ -1,7 +1,7 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny
 from django.contrib.auth import get_user_model
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 from custom_user.serializers import (
@@ -14,7 +14,7 @@ User = get_user_model()
 
 
 class ResetPasswordView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     @extend_schema(
         request=ResetPasswordSerializer,
@@ -41,15 +41,8 @@ class ResetPasswordView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        old_password = serializer.validated_data['old_password']
         new_password = serializer.validated_data['new_password']
         user = request.user
-
-        if not user.check_password(old_password):
-            return Response(
-                {'error': 'Eski parol noto\'g\'ri'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
 
         user.set_password(new_password)
         user.save()

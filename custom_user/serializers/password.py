@@ -13,7 +13,6 @@ class ForgotPasswordResponseSerializer(serializers.Serializer):
 
 class ResetPasswordSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True, help_text="User email manzili")
-    old_password = serializers.CharField(required=True, write_only=True, help_text="Eski parol")
     new_password = serializers.CharField(min_length=8, required=True, write_only=True, help_text="Yangi parol")
 
 
