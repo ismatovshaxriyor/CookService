@@ -13,6 +13,7 @@ urlpatterns = [
     path('verify/', VerifyCodeUniversalView.as_view(), name='verify-activation-code'),
     path('login/', UserLoginView.as_view(), name='user-login'),
     path("me/update_photo/", ProfilePhotoUpdateView.as_view(), name='update-photo'),
+    path('me/notification/', NotificationSettingsView.as_view(), name='update_notification'),
 
     path('password/forgot/', ForgotPasswordView.as_view(), name='forgot-password'),
     path('password/reset/', ResetPasswordView.as_view(), name='reset-password'),

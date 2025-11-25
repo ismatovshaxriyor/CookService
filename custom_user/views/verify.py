@@ -79,6 +79,8 @@ class VerifyCodeUniversalView(APIView):
             location_city = get_location_by_ip(ip_address)
         except:
             location_city = None
+        device = get_device_info(request)
+        device_model = device.get("device_model")
 
         try:
             user = User.objects.get(email=email)
@@ -134,6 +136,7 @@ class VerifyCodeUniversalView(APIView):
                             device_ip=ip_address,
                             device_hardware=serializer.validated_data.get('device_hardware'),
                             location_city=location_city,
+                            device_name=device_model
                         )
                     except:
                         return Response(

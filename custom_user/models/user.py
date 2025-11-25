@@ -27,11 +27,13 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     full_name = models.CharField(max_length=30, null=True, blank=True)
     date_joined = models.DateTimeField(default=timezone.now)
     profile_photo = models.ImageField(
-        upload_to="profile_photos/",
+        upload_to="media/profile_photos/",
         default="default_user.png",
         blank=True,
         null=True
     )
+    notification = models.BooleanField(default=False)
+    promotional_notification = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
 

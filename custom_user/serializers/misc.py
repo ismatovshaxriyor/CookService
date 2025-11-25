@@ -7,8 +7,23 @@ User = get_user_model()
 class CustomUserSerializer(UserSerializer):
     class Meta(UserSerializer.Meta):
         model = User
-        fields = ("id", "email", "phone_number", "full_name", "profile_photo")
+        fields = ("id", "email", "phone_number", "full_name", "profile_photo", 'notification', 'promotional_notification')
         read_only_fields = ("id",)
+
+
+class NotificationSettingsSerializer(serializers.Serializer):
+    notification = serializers.BooleanField(required=False, help_text="Oddiy bildirishnomalar")
+    promotional_notification = serializers.BooleanField(required=False, help_text="Reklama bildirishnomalari")
+
+    def validate(self, data):
+        if not data:
+            raise serializers.ValidationError("Kamida bitta sozlama yuborilishi kerak")
+        return data
+
+
+class NotificationSettingsResponseSerializer(serializers.Serializer):
+    success = serializers.BooleanField()
+    message = serializers.CharField()
 
 class ProfilePhotoSerializer(serializers.Serializer):
     profile_photo = serializers.ImageField()
