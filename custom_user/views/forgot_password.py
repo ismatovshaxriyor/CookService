@@ -94,7 +94,7 @@ class ForgotPasswordView(APIView):
                 'ip_address': ip_address,
                 'user_id': user.id
             }
-            cache.set(cache_key, cache_data, timeout=40)
+            cache.set(cache_key, cache_data, timeout=60)
             cache.set(f'last_reset_sent_{user.id}_{ip_address}', True, timeout=60)
 
             try:
