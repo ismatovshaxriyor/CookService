@@ -21,11 +21,6 @@ User = get_user_model()
 
 
 class ForgotPasswordView(APIView):
-    """
-    Parolni unutgan user uchun email'ga 6 raqamli kod yuborish.
-    IP address bilan ishlaydi - har safar yangi IP'dan so'rov kelsa,
-    eski kod bekor qilinadi va yangi kod yuboriladi.
-    """
     permission_classes = [AllowAny]
 
     @extend_schema(
@@ -56,8 +51,12 @@ class ForgotPasswordView(APIView):
         serializer = ForgotPasswordSerializer(data=request.data)
 
         if not serializer.is_valid():
+            errors = serializer.errors
+            first_field = next(iter(errors))
+            error_msg = errors[first_field][0]
+
             return Response(
-                {'error': serializer.errors},
+                {'success': False, 'error': error_msg, 'errorStatus': 'data_credential'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -67,44 +66,37 @@ class ForgotPasswordView(APIView):
         try:
             user = User.objects.get(email=email)
 
-            # Agar user active bo'lmasa
             if not user.is_active:
                 return Response(
-                    {'error': 'Bu akkount aktivlashtirilmagan'},
+                    {'success': False,'error': 'This account has not been activated.', 'errorStatus': 'not_activated'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Oxirgi kod yuborilgan vaqtni tekshirish
             cache_key = f'reset_password_code_{user.id}'
             cached_data = cache.get(cache_key)
 
             if cached_data:
-                # Agar IP bir xil bo'lsa va 1 daqiqa o'tmagan bo'lsa
                 if cached_data.get('ip_address') == ip_address:
                     last_sent_key = f'last_reset_sent_{user.id}_{ip_address}'
                     if cache.get(last_sent_key):
                         return Response(
-                            {'error': 'Iltimos, yangi kod so\'rash uchun 1 daqiqa kuting'},
+                            {'success': False, 'error': 'Please wait 1 minute to request a new code.', 'errorStatus': 'time_out'},
                             status=status.HTTP_429_TOO_MANY_REQUESTS
                         )
                 else:
-                    # Boshqa IP'dan kelsa, eski cache'ni o'chiramiz
                     cache.delete(cache_key)
 
-            # Yangi kod generatsiya
             code = ''.join(random.choices(string.digits, k=6))
 
-            # Cache'ga saqlash
             cache_data = {
                 'email': email,
                 'code': code,
                 'ip_address': ip_address,
                 'user_id': user.id
             }
-            cache.set(cache_key, cache_data, timeout=600)  # 10 daqiqa
+            cache.set(cache_key, cache_data, timeout=40)
             cache.set(f'last_reset_sent_{user.id}_{ip_address}', True, timeout=60)
 
-            # Email yuborish
             try:
                 send_mail(
                     subject='Parolni tiklash kodi',
@@ -115,21 +107,20 @@ class ForgotPasswordView(APIView):
                 )
             except Exception as e:
                 return Response(
-                    {'error': 'Email yuborishda xatolik yuz berdi'},
+                    {'success': False, 'error': 'An error occurred while sending the email.', 'errorStatus': 'send_mail'},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
 
             response_data = {
                 'success': True,
                 'message': 'Parol tiklash kodi emailingizga yuborildi',
-                'email': email
             }
 
             return Response(response_data, status=status.HTTP_200_OK)
 
         except User.DoesNotExist:
             return Response(
-                {'error': 'Bu email bilan foydalanuvchi topilmadi'},
+                {'succes': False, 'error': 'Bu email bilan foydalanuvchi topilmadi', 'errorStatus': 'data_credential'},
                 status=status.HTTP_404_NOT_FOUND
             )
 

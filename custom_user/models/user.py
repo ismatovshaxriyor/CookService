@@ -28,7 +28,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     date_joined = models.DateTimeField(default=timezone.now)
     profile_photo = models.ImageField(
         upload_to="profile_photos/",
-        default="profile_photos/default_user.png",
+        default="default_user.png",
         blank=True,
         null=True
     )

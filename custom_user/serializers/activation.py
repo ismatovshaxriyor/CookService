@@ -27,7 +27,6 @@ class VerifyActivationCodeSerializer(serializers.Serializer):
         help_text="6 raqamli aktivatsiya kodi"
     )
     device_hardware = serializers.CharField(allow_null=True)
-    request_type = serializers.CharField()
 
     def validate_code(self, value):
         if not value.isdigit():

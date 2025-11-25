@@ -29,7 +29,6 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
 
 class UserRegistrationResponseSerializer(serializers.Serializer):
-    """Register response"""
     success = serializers.BooleanField()
     message = serializers.CharField()
 

@@ -70,8 +70,7 @@ class VerifyCodeUniversalSerializer(serializers.Serializer):
 class VerifyCodeUniversalResponseSerializer(serializers.Serializer):
     success = serializers.BooleanField()
     message = serializers.CharField()
-    request_type = serializers.CharField()
-    email = serializers.EmailField()
+
     # Faqat register uchun
     access = serializers.CharField(required=False, help_text="JWT Access Token (faqat register)")
     refresh = serializers.CharField(required=False, help_text="JWT Refresh Token (faqat register)")

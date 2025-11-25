@@ -60,7 +60,10 @@ class UserLoginView(APIView):
         password = serializer.validated_data['password']
         device_hardware = serializer.validated_data['device_hardware']
         ip_address = get_client_ip(request)
-        location_city = get_location_by_ip(ip_address)
+        try:
+            location_city = get_location_by_ip(ip_address)
+        except:
+            location_city = None
         device = get_device_info(request)
         device_model = device.get("device_model")
 
