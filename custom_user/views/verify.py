@@ -96,7 +96,7 @@ class VerifyCodeUniversalView(APIView):
 
             if not cached_data:
                 return Response(
-                    {'success': True, 'error': 'Code has expired. Request a new code.', 'errorStatus': 'timeout'},
+                    {'success': True, 'error': 'Code has expired. Request a new code.', 'errorStatus': 'time_out'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
