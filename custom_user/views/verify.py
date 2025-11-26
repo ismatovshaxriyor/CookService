@@ -88,7 +88,7 @@ class VerifyCodeUniversalView(APIView):
                 cache_key = f'reset_password_code_{user.id}'
             else:
                 return Response(
-                    {'succes': False, 'error': 'request_type can only be "register" or "forgot"', 'errorStatus': 'data_credential'},
+                    {'success': False, 'error': 'request_type can only be "register" or "forgot"', 'errorStatus': 'data_credential'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
@@ -96,7 +96,7 @@ class VerifyCodeUniversalView(APIView):
 
             if not cached_data:
                 return Response(
-                    {'success': True, 'error': 'Code has expired. Request a new code.', 'errorStatus': 'time_out'},
+                    {'success': False, 'error': 'Code has expired. Request a new code.', 'errorStatus': 'time_out'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
