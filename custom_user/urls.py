@@ -23,6 +23,11 @@ urlpatterns = [
 
     path('devices/', DeviceListView.as_view(), name='device-list'),
     path('devices/<uuid:uid>/delete/', DeviceDeleteView.as_view(), name='device-delete'),
+
+    path('addresses/', AddressListView.as_view(), name='addresses-list'),
+    path('addresses/create', AddressCreateView.as_view(), name='address-create'),
+    path('addresses/<int:id>/', AddressDetailView.as_view(), name='address-detail'),
+    path('addresses/<int:id>/set-default', AddressSetDefaultView.as_view(), name='address-set-default')
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

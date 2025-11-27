@@ -28,31 +28,10 @@ class NotificationSettingsResponseSerializer(serializers.Serializer):
 class ProfilePhotoSerializer(serializers.Serializer):
     profile_photo = serializers.ImageField()
 
-class SendMailSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-
 class ErrorResponseSerializer(serializers.Serializer):
     success = serializers.BooleanField()
     error = serializers.CharField()
     errorStatus = serializers.CharField()
-
-
-class VerifyActivationCodeSerializer(serializers.Serializer):
-    email = serializers.EmailField(
-        required=True,
-        help_text="Foydalanuvchi email manzili"
-    )
-    code = serializers.CharField(
-        max_length=6,
-        min_length=6,
-        required=True,
-        help_text="6 raqamli aktivatsiya kodi"
-    )
-
-    def validate_code(self, value):
-        if not value.isdigit():
-            raise serializers.ValidationError("Kod faqat raqamlardan iborat bo'lishi kerak")
-        return value
 
 
 class VerifyCodeUniversalSerializer(serializers.Serializer):
