@@ -57,3 +57,21 @@ class NotificationSettingsView(APIView):
         }
 
         return Response(response_data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        tags=['User Settings'],
+        summary='Notification sozlamalari',
+        description='User notification sozlamalarini ko\'rish'
+    )
+    def get(self, request):
+        user = request.user
+
+        return Response(
+            {
+                'success': True,
+                'notification': user.notification,
+                'promotional_notification': user.promotional_notification
+            },
+            status=status.HTTP_200_OK
+        )
+

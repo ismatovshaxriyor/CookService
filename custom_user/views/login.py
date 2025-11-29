@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from django.contrib.auth import get_user_model
 from drf_spectacular.utils import extend_schema, OpenApiResponse
-from rest_framework_simplejwt.tokens import RefreshToken
+from django.utils import timezone
 
 from custom_user.models import Device
 from custom_user.serializers import (
@@ -13,8 +13,10 @@ from custom_user.serializers import (
     UserLoginResponseSerializer,
 )
 from custom_user.services import get_device_info, get_location_by_ip, get_client_ip
+from custom_user.utils import get_tokens_for_user
 
 User = get_user_model()
+
 
 class UserLoginView(APIView):
     permission_classes = [AllowAny]
@@ -34,14 +36,10 @@ class UserLoginView(APIView):
                 response=ErrorResponseSerializer,
                 description='Akkount aktivlashtirilmagan'
             ),
-            404: OpenApiResponse(
-                response=ErrorResponseSerializer,
-                description='Foydalanuvchi topilmadi'
-            ),
         },
         tags=['Authentication'],
         summary='Login qilish',
-        description='Email va parol bilan login qilib JWT tokenlarni olish'
+        description='Email va parol bilan login qilib JWT tokenlarni olish (device ma\'lumotlari ixtiyoriy)'
     )
     def post(self, request):
         serializer = UserLoginSerializer(data=request.data)
@@ -58,69 +56,52 @@ class UserLoginView(APIView):
 
         email = serializer.validated_data['email']
         password = serializer.validated_data['password']
-        device_hardware = serializer.validated_data['device_hardware']
-        ip_address = get_client_ip(request)
-        try:
-            location_city = get_location_by_ip(ip_address)
-        except:
-            location_city = None
-        device = get_device_info(request)
-        device_model = device.get("device_model")
-
+        device_hardware = request.data.get('device_hardware')
 
         try:
             user = User.objects.get(email=email)
 
-            device_exists = user.devices.filter(device_hardware=device_hardware).exists()
-
-            if device_exists:
-                return  Response(
-                    {
-                        'success': False,
-                        'error': "This device is already exists",
-                        'errorStatus': 'already_have'
-                    },
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
             if not user.check_password(password):
                 return Response(
-                    {'success': False, 'error': 'Incorrect email or password', 'errorStatus': 'data_credential'},
+                    {'success': False, 'error': 'Incorrect email or password.', 'errorStatus': 'data_credential'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
             if not user.is_active:
                 return Response(
-                    {'succes': False, 'error': 'Account not actvated', 'errorStatus': 'unauthorized'},
+                    {'success': False, 'error': 'Account not activated. Please enter the code sent to your email.', 'errorStatus': "not_activated"},
                     status=status.HTTP_401_UNAUTHORIZED
                 )
-            new_device, created = Device.objects.get_or_create(
-                user=user,
-                device_hardware=device_hardware,
-                defaults={"device_name": device_model, "location_city": location_city}
-            )
 
-            message = "Login successfull"
-            if created:
-                message += 'New device detected'
-            else:
-                return Response(
-                    {
-                        'success': False,
-                        'error': "This device is already exists",
-                        'errorStatus': 'exists'
+            tokens = get_tokens_for_user(user, device_hardware=device_hardware)
+
+            if device_hardware:
+                ip_address = get_client_ip(request)
+                location_city = get_location_by_ip(ip_address)
+                device_info = get_device_info(request)
+                device_model = device_info.get('device_model', '')
+
+                device, created = Device.objects.update_or_create(
+                    user=user,
+                    device_hardware=device_hardware,
+                    defaults={
+                        'device_ip': ip_address,
+                        'device_name': device_model,
+                        'location_city': location_city if location_city else '',
+                        'access_token': tokens['access'],
+                        'refresh_token': tokens['refresh'],
                     }
                 )
 
-
-            refresh = RefreshToken.for_user(user)
+                device.last_online = timezone.now()
+                device.save()
 
             response_data = {
                 'success': True,
-                'message': message,
+                'message': 'Login muvaffaqiyatli',
                 'login_response': {
-                    'access': str(refresh.access_token),
-                    'refresh': str(refresh),
+                    'access': tokens['access'],
+                    'refresh': tokens['refresh'],
                 }
             }
 
@@ -128,7 +109,7 @@ class UserLoginView(APIView):
 
         except User.DoesNotExist:
             return Response(
-                {'success': False, 'error': 'Incorrect email or password', 'errorStatus': 'data_credential'},
+                {'success': False, 'error': 'Incorrect email or password.', 'errorStatus': 'data_credential'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 

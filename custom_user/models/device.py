@@ -10,10 +10,10 @@ class Device(models.Model):
     device_name = models.CharField(max_length=100, null=True, blank=True)
     location_city = models.CharField(max_length=50, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    last_online = models.DateTimeField(auto_now=True)
-    is_active = models.BooleanField(default=True)
     access_token = models.CharField(max_length=300, null=True, blank=True)
     refresh_token = models.CharField(max_length=300, null=True, blank=True)
+    last_online = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
 
     class Meta:
         db_table = 'users_device'

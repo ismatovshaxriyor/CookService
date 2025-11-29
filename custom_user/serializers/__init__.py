@@ -5,3 +5,4 @@ from .register import *
 from .activation import *
 from .password import *
 from .delivery_locations import *
+from .custom_jwt import *

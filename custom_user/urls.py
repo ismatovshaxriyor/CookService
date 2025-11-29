@@ -22,7 +22,7 @@ urlpatterns = [
     path('', include(router.urls)),
 
     path('devices/', DeviceListView.as_view(), name='device-list'),
-    path('devices/<uuid:uid>/delete/', DeviceDeleteView.as_view(), name='device-delete'),
+    path('devices/delete/', DeviceDeleteView.as_view(), name='device-delete'),
 
     path('addresses/', AddressListView.as_view(), name='addresses-list'),
     path('addresses/create', AddressCreateView.as_view(), name='address-create'),

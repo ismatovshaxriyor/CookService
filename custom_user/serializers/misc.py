@@ -33,7 +33,6 @@ class ErrorResponseSerializer(serializers.Serializer):
     error = serializers.CharField()
     errorStatus = serializers.CharField()
 
-
 class VerifyCodeUniversalSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True, help_text="User email")
     code = serializers.CharField(max_length=6, min_length=6, required=True, help_text="6 raqamli kod")

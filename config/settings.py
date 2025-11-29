@@ -233,6 +233,7 @@ SIMPLE_JWT = {
     'UPDATE_LAST_LOGIN': True,
     'ALGORITHM': 'HS256',
     'AUTH_HEADER_TYPES': ('Bearer',),
+    'TOKEN_OBTAIN_SERIALIZER': 'custom_user.serializers.CustomTokenObtainPairSerializer',
 }
 
 SPECTACULAR_SETTINGS = {

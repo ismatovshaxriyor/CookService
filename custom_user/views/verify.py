@@ -5,33 +5,21 @@ from rest_framework.permissions import AllowAny
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from drf_spectacular.utils import extend_schema, OpenApiResponse
-from rest_framework_simplejwt.tokens import RefreshToken
 
 from custom_user.serializers import (
+    DeviceSerializer,
     VerifyCodeUniversalSerializer,
     ErrorResponseSerializer,
     VerifyCodeUniversalResponseSerializer,
 )
 from custom_user.services import get_client_ip, get_location_by_ip, get_device_info
 from custom_user.models import Device
+from custom_user.utils import get_tokens_for_user
 
 User = get_user_model()
 
 
 class VerifyCodeUniversalView(APIView):
-    """
-    Universal kod tekshirish API.
-
-    request_type='register':
-        - User aktivatsiya qilinadi
-        - JWT tokenlar beriladi
-        - Device yaratiladi (agar ma'lumotlar bo'lsa)
-
-    request_type='forgot':
-        - Faqat kod tekshiriladi
-        - Token BERILMAYDI
-        - Keyingi qadamda user login qilishi kerak
-    """
     permission_classes = [AllowAny]
 
     @extend_schema(
@@ -100,7 +88,6 @@ class VerifyCodeUniversalView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # IP address tekshiruvi
             if cached_data.get('ip_address') != ip_address:
                 return Response(
                     { 'success': False,
@@ -109,7 +96,6 @@ class VerifyCodeUniversalView(APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
 
-            # Kodni tekshirish
             if cached_data.get('code') != code:
                 return Response(
                     { 'success': False, 'error': 'Invalid code', 'errorStatus': 'data_credential'},
@@ -118,41 +104,37 @@ class VerifyCodeUniversalView(APIView):
 
             # ========== REGISTER TYPE ==========
             if request_type == 'register':
-                if user.is_active:
-                    return Response({'succes': False,
-                        'error': 'This account is already activated.', 'errorStatus': 'already_have'},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-
-                user.is_active = True
-                user.save()
+                device_hardware_from_request = serializer.validated_data.get('device_hardware')
+                tokens = get_tokens_for_user(user, device_hardware=device_hardware_from_request)
 
                 device = None
-                if serializer.validated_data.get('device_hardware') or serializer.validated_data.get('device_name'):
-                    device = Device.objects.create(
+                if device_hardware_from_request:
+                    device, created = Device.objects.update_or_create(
                         user=user,
-                        device_ip=ip_address,
-                        device_hardware=serializer.validated_data.get('device_hardware'),
-                        device_name=device_model,
-                        location_city=location_city,
+                        device_hardware=device_hardware_from_request,
+                        defaults={
+                            'device_ip': ip_address,
+                            'device_name': device_model,
+                            'location_city': location_city if location_city else '',
+                            'access_token': tokens['access'],
+                            'refresh_token': tokens['refresh'],
+                        }
                     )
 
-                # JWT tokenlarni generatsiya qilish
-                refresh = RefreshToken.for_user(user)
-
-                # Cache'ni tozalash
                 cache.delete(cache_key)
                 cache.delete(f'last_code_sent_{user.id}_{ip_address}')
 
                 response_data = {
                     'success': True,
-                    'message': 'Account successfully activated',
+                    'message': 'Akkount muvaffaqiyatli aktivlashtirildi',
                     'response': {
-                        'access': str(refresh.access_token),
-                        'refresh': str(refresh),
+                        'access': tokens['access'],
+                        'refresh': tokens['refresh'],
                     }
                 }
 
+                if device:
+                    response_data['device'] = DeviceSerializer(device).data
 
                 return Response(response_data, status=status.HTTP_200_OK)
 
