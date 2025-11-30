@@ -2,7 +2,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
-from drf_spectacular.utils import extend_schema, OpenApiResponse
+from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParameter
 
 from custom_user.serializers import (
     ErrorResponseSerializer,
@@ -11,6 +11,7 @@ from custom_user.serializers import (
 )
 from custom_user.models import Device
 from custom_user.utils import get_device_from_token
+from custom_user.pagination import CustomPageNumberPagination
 
 
 class DeviceDeleteView(APIView):
@@ -94,8 +95,14 @@ class DeviceDeleteView(APIView):
 
 class DeviceListView(APIView):
     permission_classes = [IsAuthenticated]
+    pagination_class = CustomPageNumberPagination
 
     @extend_schema(
+        parameters=[
+            OpenApiParameter(name='page', description='Sahifa raqami', required=False, type=int),
+            OpenApiParameter(name='page_size', description='Sahifadagi elementlar soni (max: 100)', required=False,
+                             type=int, default=5),
+        ],
         responses={
             200: OpenApiResponse(
                 response=DeviceSerializer(many=True),
@@ -108,13 +115,12 @@ class DeviceListView(APIView):
     )
     def get(self, request):
         devices = Device.objects.filter(user=request.user)
-        serializer = DeviceSerializer(devices, many=True)
 
-        return Response(
-            {
-                'success': True,
-                'count': devices.count(),
-                'devices': serializer.data
-            },
-            status=status.HTTP_200_OK
-        )
+        # Pagination qo'llash
+        paginator = self.pagination_class()
+        paginated_devices = paginator.paginate_queryset(devices, request)
+
+        serializer = DeviceSerializer(paginated_devices, many=True)
+
+        # Paginated response
+        return paginator.get_paginated_response(serializer.data)

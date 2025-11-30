@@ -8,6 +8,7 @@ from custom_user.serializers import NotificationSettingsSerializer, ErrorRespons
 
 class NotificationSettingsView(APIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = NotificationSettingsSerializer
 
     @extend_schema(
         request=NotificationSettingsSerializer,

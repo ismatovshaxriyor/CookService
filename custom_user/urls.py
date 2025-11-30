@@ -24,10 +24,15 @@ urlpatterns = [
     path('devices/', DeviceListView.as_view(), name='device-list'),
     path('devices/delete/', DeviceDeleteView.as_view(), name='device-delete'),
 
+    path('api/cards/', CardListView.as_view(), name='card-list'),
+    path('api/cards/create/', CardCreateView.as_view(), name='card-create'),
+    path('api/cards/<uuid:uid>/', CardDetailView.as_view(), name='card-detail'),
+    path('api/cards/<uuid:uid>/set-default/', CardSetDefaultView.as_view(), name='card-set-default'),
+
     path('addresses/', AddressListView.as_view(), name='addresses-list'),
     path('addresses/create', AddressCreateView.as_view(), name='address-create'),
-    path('addresses/<int:id>/', AddressDetailView.as_view(), name='address-detail'),
-    path('addresses/<int:id>/set-default', AddressSetDefaultView.as_view(), name='address-set-default')
+    path('addresses/<int:address_id>/', AddressDetailView.as_view(), name='address-detail'),
+    path('addresses/<int:address_id>/set-default', AddressSetDefaultView.as_view(), name='address-set-default')
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

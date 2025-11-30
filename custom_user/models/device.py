@@ -21,5 +21,7 @@ class Device(models.Model):
         verbose_name_plural = 'Devices'
         ordering = ['-last_online']
 
+
+
     def __str__(self):
         return f"{self.user.email} - {self.device_name or 'Unknown Device'}"
