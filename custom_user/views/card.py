@@ -9,14 +9,13 @@ from custom_user.serializers import CardSerializer, CardCreateSerializer, CardUp
 
 
 class CardListView(APIView):
-    """User'ning barcha kartalari (paginated, default birinchi)"""
     permission_classes = [IsAuthenticated]
     pagination_class = CustomPageNumberPagination
 
     @extend_schema(
         parameters=[
             OpenApiParameter(name='page', description='Sahifa raqami', required=False, type=int),
-            OpenApiParameter(name='page_size', description='Sahifadagi elementlar soni', required=False, type=int),
+            OpenApiParameter(name='page_size', description='Sahifadagi elementlar soni', required=False, type=int, default=5),
         ],
         responses={
             200: OpenApiResponse(
@@ -32,7 +31,6 @@ class CardListView(APIView):
     def get(self, request):
         cards = Card.objects.filter(user=request.user)
 
-        # Pagination
         paginator = self.pagination_class()
         paginated_cards = paginator.paginate_queryset(cards, request)
 
@@ -42,7 +40,6 @@ class CardListView(APIView):
 
 
 class CardCreateView(APIView):
-    """Yangi karta qo'shish"""
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -65,8 +62,12 @@ class CardCreateView(APIView):
         serializer = CardCreateSerializer(data=request.data)
 
         if not serializer.is_valid():
+            errors = serializer.errors
+            first_field = next(iter(errors))
+            error_msg = errors[first_field][0]
+
             return Response(
-                {'error': serializer.errors},
+                {'success': False, 'error': error_msg, 'errorStatus': 'data_credential'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -74,13 +75,12 @@ class CardCreateView(APIView):
 
         return Response({
             'success': True,
-            'message': 'Karta muvaffaqiyatli qo\'shildi',
-            'card': CardSerializer(card).data
+            'message': 'Card added successfully.',
+            'data': CardSerializer(card).data
         }, status=status.HTTP_201_CREATED)
 
 
 class CardDetailView(APIView):
-    """Bitta kartani ko'rish, yangilash, o'chirish"""
     permission_classes = [IsAuthenticated]
 
     def get_object(self, uid):
@@ -103,13 +103,13 @@ class CardDetailView(APIView):
 
         if not card:
             return Response(
-                {'error': 'Karta topilmadi'},
+                {'success': False, 'error': 'Card not found', 'errorStatus': 'data_credential'},
                 status=status.HTTP_404_NOT_FOUND
             )
 
         return Response({
             'success': True,
-            'card': CardSerializer(card).data
+            'data': CardSerializer(card).data
         }, status=status.HTTP_200_OK)
 
     @extend_schema(
@@ -128,15 +128,19 @@ class CardDetailView(APIView):
 
         if not card:
             return Response(
-                {'error': 'Karta topilmadi'},
+                {'success': False, 'error': 'Card not found', 'errorStatus': 'data_credential'},
                 status=status.HTTP_404_NOT_FOUND
             )
 
         serializer = CardUpdateSerializer(card, data=request.data, partial=True)
 
         if not serializer.is_valid():
+            errors = serializer.errors
+            first_field = next(iter(errors))
+            error_msg = errors[first_field][0]
+
             return Response(
-                {'error': serializer.errors},
+                {'success': False, 'error': error_msg, 'errorStatus': 'data_credential'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -144,8 +148,7 @@ class CardDetailView(APIView):
 
         return Response({
             'success': True,
-            'message': 'Karta yangilandi',
-            'card': CardSerializer(card).data
+            'message': 'The card has been updated',
         }, status=status.HTTP_200_OK)
 
     @extend_schema(
@@ -162,15 +165,13 @@ class CardDetailView(APIView):
 
         if not card:
             return Response(
-                {'error': 'Karta topilmadi'},
+                {'success': False, 'error': 'Card not found', 'errorStatus': 'data_credential'},
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # Agar default karta o'chirilsa
         was_default = card.default
         card.delete()
 
-        # Keyingi kartani default qilish
         if was_default:
             next_card = Card.objects.filter(user=request.user).first()
             if next_card:
@@ -179,7 +180,7 @@ class CardDetailView(APIView):
 
         return Response({
             'success': True,
-            'message': 'Karta o\'chirildi'
+            'message': 'Card deleted.'
         }, status=status.HTTP_200_OK)
 
 

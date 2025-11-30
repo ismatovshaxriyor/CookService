@@ -1,8 +1,10 @@
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiResponse, extend_schema, OpenApiParameter
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
+
+from custom_user.pagination import CustomPageNumberPagination
 from custom_user.serializers import (
     AddressSerializer,
     AddressCreateSerializer,
@@ -14,8 +16,15 @@ from custom_user.models import Address
 
 class AddressListView(APIView):
     permission_classes = [IsAuthenticated]
+    pagination_class = CustomPageNumberPagination
+
 
     @extend_schema(
+        parameters=[
+            OpenApiParameter(name='page', description='Sahifa raqami', required=False, type=int),
+            OpenApiParameter(name='page_size', description='Sahifadagi elementlar soni', required=False, type=int,
+                             default=5),
+        ],
         operation_id="address_list",
         responses={
             200: OpenApiResponse(
@@ -183,6 +192,7 @@ class AddressSetDefaultView(APIView):
     serializer_class = AddressSerializer
 
     @extend_schema(
+
         operation_id="address_set_default",
         responses={
             200: AddressSerializer,

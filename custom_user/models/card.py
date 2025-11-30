@@ -39,5 +39,5 @@ class Card(models.Model):
     @property
     def masked_number(self) -> str:
         if len(self.card_number) >= 4:
-            return f"{self.card_number[:3]} **** **** {self.card_number[-4:]}"
+            return f"{self.card_number[:4]} **** **** {self.card_number[-4:]}"
         return self.card_number
