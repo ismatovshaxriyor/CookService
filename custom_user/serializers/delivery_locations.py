@@ -7,7 +7,7 @@ class AddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
         fields = ('id', 'lat', 'long', 'name', 'address', 'apartment', 'entrance',
-                  'floor', 'door_phone', 'instructions', 'default', 'created_at', 'updated_at')
+                  'floor', 'door_phone', 'instructions', 'created_at', 'updated_at')
         read_only_fields = ('id', 'created_at', 'updated_at')
 
 
