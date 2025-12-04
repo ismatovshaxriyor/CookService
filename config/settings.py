@@ -52,6 +52,7 @@ INSTALLED_APPS = [
 
     # Local apps
     'custom_user',
+    # 'restaurants',
 ]
 
 MIDDLEWARE = [

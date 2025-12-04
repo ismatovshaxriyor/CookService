@@ -1,5 +1,6 @@
-from drf_spectacular.utils import OpenApiResponse, extend_schema, OpenApiParameter
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework.views import APIView
+from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
@@ -14,17 +15,13 @@ from custom_user.serializers import (
 from custom_user.models import Address
 
 
-class AddressListView(APIView):
+class AddressListView(ListAPIView):
+    queryset = Address.objects.all()
     permission_classes = [IsAuthenticated]
+    serializer_class = AddressSerializer
     pagination_class = CustomPageNumberPagination
 
-
     @extend_schema(
-        parameters=[
-            OpenApiParameter(name='page', description='Sahifa raqami', required=False, type=int),
-            OpenApiParameter(name='page_size', description='Sahifadagi elementlar soni', required=False, type=int,
-                             default=5),
-        ],
         operation_id="address_list",
         responses={
             200: OpenApiResponse(
@@ -36,16 +33,8 @@ class AddressListView(APIView):
         summary='Manzillar ro\'yxati',
         description='User\'ning barcha manzillari (default birinchi)'
     )
-    def get(self, request):
-        addresses = Address.objects.filter(user=request.user)
-        serializer = AddressSerializer(addresses, many=True)
-
-        return Response({
-            'success': True,
-            'count': addresses.count(),
-            'addresses': serializer.data
-        }, status=status.HTTP_200_OK)
-
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
 
 class AddressCreateView(APIView):
     permission_classes = [IsAuthenticated]
@@ -80,8 +69,8 @@ class AddressCreateView(APIView):
         return Response({
             'success': True,
             'message': 'Address added successfully.',
+            'result': serializer.data
         }, status=status.HTTP_201_CREATED)
-
 
 class AddressDetailView(APIView):
     permission_classes = [IsAuthenticated]

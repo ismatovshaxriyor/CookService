@@ -11,11 +11,13 @@ class CustomPageNumberPagination(PageNumberPagination):
     def get_paginated_response(self, data):
         return Response({
             'success': True,
-            'count': self.page.paginator.count,
-            'next': self.get_next_link(),
-            'previous': self.get_previous_link(),
-            'total_pages': self.page.paginator.num_pages,
-            'current_page': self.page.number,
-            'page_size': self.get_page_size(self.request),
+            'pagination': {
+                'count': self.page.paginator.count,
+                'next': self.get_next_link(),
+                'previous': self.get_previous_link(),
+                'total_pages': self.page.paginator.num_pages,
+                'current_page': self.page.number,
+                'page_size': self.get_page_size(self.request),
+            },
             'results': data
         })

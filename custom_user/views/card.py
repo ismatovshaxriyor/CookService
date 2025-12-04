@@ -1,4 +1,5 @@
 from rest_framework.views import APIView
+from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
@@ -8,15 +9,43 @@ from custom_user.pagination import CustomPageNumberPagination
 from custom_user.serializers import CardSerializer, CardCreateSerializer, CardUpdateSerializer, ErrorResponseSerializer
 
 
-class CardListView(APIView):
-    permission_classes = [IsAuthenticated]
+# class CardListView(APIView):
+#     permission_classes = [IsAuthenticated]
+#     pagination_class = CustomPageNumberPagination
+#
+#     @extend_schema(
+#         parameters=[
+#             OpenApiParameter(name='page', description='Sahifa raqami', required=False, type=int),
+#             OpenApiParameter(name='page_size', description='Sahifadagi elementlar soni', required=False, type=int, default=5),
+#         ],
+#         responses={
+#             200: OpenApiResponse(
+#                 response=CardSerializer(many=True),
+#                 description='Kartalar ro\'yxati'
+#             ),
+#         },
+#         tags=['Cards'],
+#         summary='Kartalar ro\'yxati',
+#         description='User\'ning barcha kartalari (default birinchi, pagination bilan)',
+#         operation_id='cards_list',
+#     )
+#     def get(self, request):
+#         cards = Card.objects.filter(user=request.user)
+#
+#         paginator = self.pagination_class()
+#         paginated_cards = paginator.paginate_queryset(cards, request)
+#
+#         serializer = CardSerializer(paginated_cards, many=True)
+#
+#         return paginator.get_paginated_response(serializer.data)
+
+class CardListView(ListAPIView):
+    queryset = Card.objects.all()
+    serializer_class = CardSerializer
     pagination_class = CustomPageNumberPagination
+    permission_classes = [IsAuthenticated]
 
     @extend_schema(
-        parameters=[
-            OpenApiParameter(name='page', description='Sahifa raqami', required=False, type=int),
-            OpenApiParameter(name='page_size', description='Sahifadagi elementlar soni', required=False, type=int, default=5),
-        ],
         responses={
             200: OpenApiResponse(
                 response=CardSerializer(many=True),
@@ -28,15 +57,8 @@ class CardListView(APIView):
         description='User\'ning barcha kartalari (default birinchi, pagination bilan)',
         operation_id='cards_list',
     )
-    def get(self, request):
-        cards = Card.objects.filter(user=request.user)
-
-        paginator = self.pagination_class()
-        paginated_cards = paginator.paginate_queryset(cards, request)
-
-        serializer = CardSerializer(paginated_cards, many=True)
-
-        return paginator.get_paginated_response(serializer.data)
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
 
 
 class CardCreateView(APIView):
