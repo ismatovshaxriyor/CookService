@@ -22,6 +22,7 @@ urlpatterns = [
     path('', include(router.urls)),
 
     path('devices/', DeviceListView.as_view(), name='device-list'),
+    path('devices/<uuid:uid>/delete/', DeviceDeleteWithUidView.as_view(), name='device-delete-with-uid'),
     path('devices/delete/', DeviceDeleteView.as_view(), name='device-delete'),
 
     path('api/cards/', CardListView.as_view(), name='card-list'),

@@ -182,7 +182,6 @@ class CardDetailView(APIView):
 
 
 class CardSetDefaultView(APIView):
-    """Kartani default qilish"""
     permission_classes = [IsAuthenticated]
 
     @extend_schema(

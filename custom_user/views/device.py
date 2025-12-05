@@ -92,6 +92,45 @@ class DeviceDeleteView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+class DeviceDeleteWithUidView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self, uid):
+        try:
+            return Device.objects.get(uid=uid, user=self.request.user)
+        except Device.DoesNotExist:
+            return None
+
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(description='Device o\'chirildi'),
+            400: ErrorResponseSerializer,
+            404: ErrorResponseSerializer
+        },
+        tags=['Devices'],
+        summary='Device uid bilan o\'chirish'
+    )
+    def delete(self, request, uid):
+        device = self.get_object(uid)
+
+        if not device:
+            return Response(
+                {
+                    'success': False,
+                    'error': 'Device not found',
+                    'errorStatus': 'data_credential'
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        device.delete()
+
+        return Response(
+            {
+                'success': True,
+                'message': 'Device deleted successfully.'
+            }
+        )
 
 class DeviceListView(APIView):
     permission_classes = [IsAuthenticated]
