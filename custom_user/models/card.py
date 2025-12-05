@@ -9,7 +9,7 @@ class Card(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='cards')
     name = models.CharField(max_length=100, null=True, blank=True,
                             help_text="Karta nomi (Mening kartam, Ish kartasi...)")
-    card_number = models.CharField(max_length=19, help_text="Karta raqami (masalan: 8600 1234 5678 9012)")
+    card_number = models.CharField(max_length=19, unique=True, help_text="Karta raqami (masalan: 8600 1234 5678 9012)")
     card_name = models.CharField(max_length=100, help_text="Karta egasining ismi", default='UzCard')
     card_expiry_date = models.CharField(max_length=5, help_text="Amal qilish muddati (MM/YY)")
     phone_number = models.CharField(max_length=20, null=True, blank=True, help_text="Telefon raqami", default='')
