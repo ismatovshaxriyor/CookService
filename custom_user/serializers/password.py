@@ -24,11 +24,9 @@ class VerifyCodeUniversalResponseSerializer(serializers.Serializer):
     success = serializers.BooleanField()
     message = serializers.CharField()
 
-    # Faqat register uchun
     access = serializers.CharField(required=False, help_text="JWT Access Token (faqat register)")
     refresh = serializers.CharField(required=False, help_text="JWT Refresh Token (faqat register)")
 
-    # Faqat forgot uchun
     reset_token = serializers.UUIDField(required=False, help_text="Reset token UUID (faqat forgot)")
 
 class ResetPasswordSerializer(serializers.Serializer):
