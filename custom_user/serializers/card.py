@@ -4,8 +4,6 @@ from rest_framework import serializers
 from custom_user.models import Card
 
 class CardSerializer(serializers.ModelSerializer):
-    """Card ma'lumotlarini ko'rsatish (masked number bilan)"""
-
     masked_number = serializers.CharField(read_only=True)
 
     class Meta:
@@ -20,22 +18,21 @@ class CardSerializer(serializers.ModelSerializer):
         return data
 
 
-class CardCreateSerializer(serializers.ModelSerializer):
+def validate_card_number(value):
+    cleaned = value.replace(' ', '')
+    if not cleaned.isdigit():
+        raise serializers.ValidationError("Karta raqami faqat raqamlardan iborat bo'lishi kerak")
+    if len(cleaned) < 16:
+        raise serializers.ValidationError("Karta raqami kamida 16 ta raqam bo'lishi kerak")
+    return value
 
+
+class CardCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Card
-        fields = ('name', 'card_number', 'card_name', 'card_expiry_date', 'phone_number', 'default')
-
-    def validate_card_number(self, value):
-        cleaned = value.replace(' ', '')
-        if not cleaned.isdigit():
-            raise serializers.ValidationError("Karta raqami faqat raqamlardan iborat bo'lishi kerak")
-        if len(cleaned) < 16:
-            raise serializers.ValidationError("Karta raqami kamida 16 ta raqam bo'lishi kerak")
-        return value
+        fields = ('name', 'card_number', 'card_expiry_date')
 
     def validate_card_expiry_date(self, value):
-        # MM/YY formatda bo'lishi kerak
         if len(value) != 5 or value[2] != '/':
             raise serializers.ValidationError("Format: MM/YY")
         month, year = value.split('/')
@@ -47,8 +44,6 @@ class CardCreateSerializer(serializers.ModelSerializer):
 
 
 class CardUpdateSerializer(serializers.ModelSerializer):
-    """Card'ni yangilash"""
-
     class Meta:
         model = Card
         fields = ('name', 'card_name', 'card_expiry_date', 'phone_number', 'default')

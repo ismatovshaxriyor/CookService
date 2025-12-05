@@ -9,35 +9,6 @@ from custom_user.pagination import CustomPageNumberPagination
 from custom_user.serializers import CardSerializer, CardCreateSerializer, CardUpdateSerializer, ErrorResponseSerializer
 
 
-# class CardListView(APIView):
-#     permission_classes = [IsAuthenticated]
-#     pagination_class = CustomPageNumberPagination
-#
-#     @extend_schema(
-#         parameters=[
-#             OpenApiParameter(name='page', description='Sahifa raqami', required=False, type=int),
-#             OpenApiParameter(name='page_size', description='Sahifadagi elementlar soni', required=False, type=int, default=5),
-#         ],
-#         responses={
-#             200: OpenApiResponse(
-#                 response=CardSerializer(many=True),
-#                 description='Kartalar ro\'yxati'
-#             ),
-#         },
-#         tags=['Cards'],
-#         summary='Kartalar ro\'yxati',
-#         description='User\'ning barcha kartalari (default birinchi, pagination bilan)',
-#         operation_id='cards_list',
-#     )
-#     def get(self, request):
-#         cards = Card.objects.filter(user=request.user)
-#
-#         paginator = self.pagination_class()
-#         paginated_cards = paginator.paginate_queryset(cards, request)
-#
-#         serializer = CardSerializer(paginated_cards, many=True)
-#
-#         return paginator.get_paginated_response(serializer.data)
 
 class CardListView(ListAPIView):
     queryset = Card.objects.all()
@@ -94,6 +65,10 @@ class CardCreateView(APIView):
             )
 
         card = serializer.save(user=request.user)
+
+        if request.user.phone_number:
+            card.phone_number = request.user.phone_number
+            card.save()
 
         return Response({
             'success': True,

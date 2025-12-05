@@ -10,9 +10,9 @@ class Card(models.Model):
     name = models.CharField(max_length=100, null=True, blank=True,
                             help_text="Karta nomi (Mening kartam, Ish kartasi...)")
     card_number = models.CharField(max_length=19, help_text="Karta raqami (masalan: 8600 1234 5678 9012)")
-    card_name = models.CharField(max_length=100, help_text="Karta egasining ismi")
+    card_name = models.CharField(max_length=100, help_text="Karta egasining ismi", default='UzCard')
     card_expiry_date = models.CharField(max_length=5, help_text="Amal qilish muddati (MM/YY)")
-    phone_number = models.CharField(max_length=20, null=True, blank=True, help_text="Telefon raqami")
+    phone_number = models.CharField(max_length=20, null=True, blank=True, help_text="Telefon raqami", default='')
     default = models.BooleanField(default=False, help_text="Asosiy karta")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
