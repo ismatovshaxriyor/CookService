@@ -9,7 +9,7 @@ class CardSerializer(serializers.ModelSerializer):
     class Meta:
         model = Card
         fields = ('uid', 'name', 'card_number', 'masked_number', 'card_name',
-                  'card_expiry_date', 'phone_number', 'created_at', 'updated_at')
+                  'card_expiry_date', 'phone_number', 'default', 'created_at', 'updated_at')
         read_only_fields = ('uid', 'masked_number', 'created_at', 'updated_at')
 
     def to_representation(self, instance):

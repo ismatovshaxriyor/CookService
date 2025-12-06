@@ -35,5 +35,3 @@ urlpatterns = [
     path('addresses/<int:address_id>/', AddressDetailView.as_view(), name='address-detail'),
     path('addresses/<int:address_id>/set-default', AddressSetDefaultView.as_view(), name='address-set-default')
 ]
-
-urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
