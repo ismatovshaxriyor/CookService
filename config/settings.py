@@ -52,7 +52,7 @@ INSTALLED_APPS = [
 
     # Local apps
     'custom_user',
-    # 'restaurants',
+    'restaurants',
 ]
 
 MIDDLEWARE = [
@@ -253,4 +253,6 @@ SPECTACULAR_SETTINGS = {
         'custom_user.utils.custom_preprocessing_hook',
     ],
 }
+
+
 

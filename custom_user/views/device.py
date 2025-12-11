@@ -136,6 +136,14 @@ class DeviceListView(APIView):
     permission_classes = [IsAuthenticated]
     pagination_class = CustomPageNumberPagination
 
+    def get_queryset(self):
+        return Device.objects.filter(user=self.request.user)
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
     @extend_schema(
         parameters=[
             OpenApiParameter(name='page', description='Sahifa raqami', required=False, type=int),
@@ -159,7 +167,9 @@ class DeviceListView(APIView):
         paginator = self.pagination_class()
         paginated_devices = paginator.paginate_queryset(devices, request)
 
-        serializer = DeviceSerializer(paginated_devices, many=True)
+        serializer = DeviceSerializer(paginated_devices, many=True, context={'request': request})
 
         # Paginated response
         return paginator.get_paginated_response(serializer.data)
+
+

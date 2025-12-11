@@ -1,8 +1,6 @@
 from django.urls import path, include
-from django.conf.urls.static import static
 from rest_framework.routers import DefaultRouter
 from custom_user.views import *
-from django.conf import settings
 
 router = DefaultRouter()
 router.register(r'users', CustomUserViewSet, basename='users')
