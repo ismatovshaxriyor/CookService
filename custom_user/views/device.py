@@ -1,6 +1,7 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParameter
 
@@ -132,17 +133,35 @@ class DeviceDeleteWithUidView(APIView):
             }
         )
 
-class DeviceListView(APIView):
+
+class DeviceListView(ListAPIView):
     permission_classes = [IsAuthenticated]
     pagination_class = CustomPageNumberPagination
+    serializer_class = DeviceSerializer
 
     def get_queryset(self):
         return Device.objects.filter(user=self.request.user)
 
     def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context['request'] = self.request
-        return context
+        return {'request': self.request}
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+
+        # me bo'yicha tartiblash: True'lar birinchi
+        sorted_data = sorted(
+            serializer.data,
+            key=lambda x: x.get('me', False),
+            reverse=True
+        )
+
+        # Pagination
+        page = self.paginate_queryset(sorted_data)
+        if page is not None:
+            return self.get_paginated_response(page)
+
+        return Response(sorted_data)
 
     @extend_schema(
         parameters=[
@@ -150,26 +169,12 @@ class DeviceListView(APIView):
             OpenApiParameter(name='page_size', description='Sahifadagi elementlar soni (max: 100)', required=False,
                              type=int, default=5),
         ],
-        responses={
-            200: OpenApiResponse(
-                response=DeviceSerializer(many=True),
-                description='User qurilmalari ro\'yxati'
-            ),
-        },
+        responses={200: DeviceSerializer(many=True)},
         tags=['Devices'],
         summary='Qurilmalar ro\'yxati',
         description='Joriy user\'ning barcha qurilmalarini ko\'rish'
     )
-    def get(self, request):
-        devices = Device.objects.filter(user=request.user)
-
-        # Pagination qo'llash
-        paginator = self.pagination_class()
-        paginated_devices = paginator.paginate_queryset(devices, request)
-
-        serializer = DeviceSerializer(paginated_devices, many=True, context={'request': request})
-
-        # Paginated response
-        return paginator.get_paginated_response(serializer.data)
+    def get(self, request, *args, **kwargs):
+        return self.list(request, *args, **kwargs)
 
 
