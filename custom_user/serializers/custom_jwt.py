@@ -10,7 +10,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         data = super().validate(attrs)
 
         try:
-            device = Device.objects.get(user=self.user)
+            device = Device.objects.filter(user=self.user).first()
         except Device.DoesNotExist:
             raise serializers.ValidationError({'error': 'device not found'})
 

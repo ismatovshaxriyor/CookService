@@ -7,11 +7,12 @@ User = get_user_model()
 
 class DeviceSerializer(serializers.ModelSerializer):
     me = serializers.SerializerMethodField()
+    login_data = serializers.DateTimeField(source='created_at', read_only=True)
 
     class Meta:
         model = Device
-        fields = ('uid', 'device_name', 'device_hardware', 'location_city', 'last_online', 'is_active', 'me')
-        read_only_fields = ('uid', 'created_at', 'last_used')
+        fields = ('uid', 'device_name', 'device_hardware', 'location_city', 'last_online', 'is_active', 'me', 'login_data')
+        read_only_fields = ('uid', 'last_used')
 
     def get_me(self, obj):
         request = self.context.get('request')
